@@ -98,6 +98,7 @@ let cartTimeout;
 let syncInterval;
 let taxaEntrega = 0;
 let isProcessingCheckout = false;
+let arquivoGlobal = null;
   
 function calcularDistancia(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
@@ -1259,10 +1260,10 @@ function showDadosEntrega(localizacaoData) {
 }
 
 
-
 function showUploadComprovante(localizacaoData, descricao) {
   currentView = 'checkout';
   lastLocalizacaoData = localizacaoData;
+  arquivoGlobal = null; // RESETA a global
   
   const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
   const taxaEntregaAtual = localizacaoData.taxaEntrega || 0;
@@ -1320,10 +1321,10 @@ function showUploadComprovante(localizacaoData, descricao) {
           <li>Evita problemas de comunicação</li>
         </ul>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
-          <button class="btn" onclick="document.getElementById('modalSemArquivo').style.display='none'; document.getElementById('fileInput').click();" style="flex: 1;">
+          <button class="btn" onclick="fecharModalESelecionarArquivo()" style="flex: 1;">
             📎 Selecionar Arquivo
           </button>
-          <button class="btn-ghost" onclick="document.getElementById('modalSemArquivo').style.display='none'" style="flex: 1;">
+          <button class="btn-ghost" onclick="fecharModal()" style="flex: 1;">
             Entendi
           </button>
         </div>
@@ -1336,8 +1337,7 @@ function showUploadComprovante(localizacaoData, descricao) {
   const uploadArea = document.getElementById('uploadArea');
   const fileInfo = document.getElementById('fileInfo');
   const submitBtn = document.getElementById('submitBtn');
-  
-  let arquivoAtual = null;
+  const modal = document.getElementById('modalSemArquivo');
   
   uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
   uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('active'); });
@@ -1357,25 +1357,42 @@ function showUploadComprovante(localizacaoData, descricao) {
       alert('❌ Formato não permitido! Apenas imagens ou PDF.'); 
       return; 
     }
-    arquivoAtual = file;
+    arquivoGlobal = file; // ATUALIZA a GLOBAL
     const fileSize = (file.size / 1024 / 1024).toFixed(2);
     fileInfo.innerHTML = `<div class="file-info"><strong>${file.name}</strong><br>Tipo: ${file.type}<br>Tamanho: ${fileSize} MB<br>✅ Arquivo pronto para envio</div>`;
     submitBtn.disabled = false; 
     submitBtn.classList.remove('btn-disabled');
   }
-  
-  // FUNÇÃO QUE VERIFICA E MOSTRA O CARD/MODAL
-  window.verificarArquivoAntesDeFinalizar = function() {
-    if (!arquivoAtual) {
-      // MOSTRA O CARD/MODAL ao invés de alert
-      document.getElementById('modalSemArquivo').style.display = 'flex';
-      return;
-    }
-    
-    // Se tem arquivo, processa normalmente
-    processarComprovanteFinal(arquivoAtual);
-  };
 }
+
+// FUNÇÕES GLOBAIS
+window.verificarArquivoAntesDeFinalizar = function() {
+  console.log("Verificando arquivoGlobal:", arquivoGlobal);
+  
+  if (!arquivoGlobal) {
+    // MOSTRA O CARD/MODAL
+    const modal = document.getElementById('modalSemArquivo');
+    if (modal) {
+      modal.style.display = 'flex';
+      console.log("Modal mostrado!");
+    }
+    return;
+  }
+  
+  // Se tem arquivo, processa normalmente
+  processarComprovanteFinal(arquivoGlobal);
+};
+
+window.fecharModalESelecionarArquivo = function() {
+  const modal = document.getElementById('modalSemArquivo');
+  if (modal) modal.style.display = 'none';
+  document.getElementById('fileInput').click();
+};
+
+window.fecharModal = function() {
+  const modal = document.getElementById('modalSemArquivo');
+  if (modal) modal.style.display = 'none';
+};
 
 function processarComprovanteFinal(arquivo) {
   if (isProcessingCheckout) {
@@ -1457,9 +1474,8 @@ function processarComprovanteFinal(arquivo) {
       submitBtn.innerHTML = 'Finalizar Pedido';
     }
   }
-  }
-    
-
+}
+ 
 
 function showNotifs(){
   currentView = 'notifs';
