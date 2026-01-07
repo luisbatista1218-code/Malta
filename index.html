@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Delivery App Completo</title>
+<style>
+  body {margin:0;font-family:'Segoe UI',sans-serif;background:#28004a;color:#fff;}
+  .top {display:flex;justify-content:space-between;align-items:center;padding:12px;background:#3a0060;}
+  .top button {background:#fff;color:#3a0060;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:bold;}
+  .main {padding:12px;}
+  .hero {width:100%;height:65vh;border-radius:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;font-size:26px;background:url('banner-inicial.jpg') center/cover no-repeat;background-color:#000}
+   @media (min-width:1024px){.hero {background-size:cover;background-position:center}}
+  .hero div {background: rgba(0,0,0,0.4); padding:25px; border-radius:12px; text-align:center;}
+  .nav {position:fixed;bottom:0;left:0;right:0;background:#3a0060;padding:10px;display:flex;justify-content:space-around;}
+  .nav button {background:#fff;color:#3a0060;border:none;padding:12px 14px;border-radius:10px;cursor:pointer;font-weight:bold;}
+  .card {background:#fff;color:#000;padding:12px;border-radius:10px;margin:10px 0;box-shadow:0 4px 6px rgba(0,0,0,0.2);}
+  .card img {width:100%;height:auto;max-height:200px;object-fit:cover;border-radius:8px;aspect-ratio:16/9;}
+   @media (min-width:768px){.card img{width:auto;max-width:100%;height:auto;object-fit:contain;}}
+  .card button {cursor:pointer;}
+  .loading {color: #fff; text-align: center; padding: 25px; font-size:18px;}
+  .upload-area {border: 2px dashed #ccc; padding: 25px; text-align: center; margin: 12px 0; border-radius: 10px; transition:0.3s;}
+  .upload-area.active {border-color: #3a0060; background: #f9f9f9;}
+  .file-info {background: #e8f4fd; padding: 12px; border-radius: 6px; margin: 12px 0; color: #000; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+  .btn {background: #3a0060; color: white; padding: 12px 18px; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-weight:bold; transition:0.2s;}
+  .btn:hover {background: #5a0080;}
+  .btn-ghost {background: #fff; color: #3a0060; padding: 12px 18px; border: 1px solid #3a0060; border-radius: 6px; cursor: pointer; margin: 5px; font-weight:bold; transition:0.2s;}
+  .btn-ghost:hover {background: #f3f3f3;}
+  .btn-disabled {background: #ccc; color: #666; cursor: not-allowed;}
+  .category-item {padding: 18px; margin: 12px 0; background: #fff; color: #000; border-radius: 10px; cursor: pointer; text-align: center; font-weight:bold; transition:0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+  .category-item:hover {background: #f3f3f3;}
+  .pix-info {background: #e6fff0; padding: 18px; border-radius: 10px; margin: 12px 0; color: #000; border-left: 5px solid #32a852; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+  .notification-badge {background: #ff4444; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; display: flex; align-items: center; justify-content: center; position: absolute; top: -6px; right: -6px; font-weight:bold;}
+  .notification-btn {position: relative;}
+  .notification-alert {background: #ff4444 !important; color: white !important; animation: pulse 1.5s infinite;}
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  .input-field {width:100%;padding:12px;margin:10px 0;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-size:16px;}
+  a {color: #3a0060; font-weight:bold;}
+  .finalizar-btn-container {position: sticky; bottom: 50px; background: #1c0035; padding: 15px; margin: -12px; margin-top: 20px;}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <button onclick="goBack()">← Voltar</button>
+  <button onclick="openContact()">Contato</button>
+  <strong>Delivery</strong>
+  <button onclick="showHelp()">❓️Ajude-me</button>
+</div>
+
+<div class="main">
+  <div id="view"></div>
+</div>
+
+<div class="nav">
+  <button onclick="showHome()">Início</button>
+  <button onclick="showCategories()">Categoria</button>
+  <button onclick="showCart()">Carrinho</button>
+  <button id="notifBtn" class="notification-btn" onclick="showNotifs()">
+    Notificações
+    <span id="notificationCounter" class="notification-badge" style="display: none">0</span>
+  </button>
+</div>
+<script>
+
+const BOT_TOKEN = '8205702578:AAFw4c3aRUR5oDDhH5WWAdOctM9rPLOIHac';
+const CHAT_ID = '1232955171';
+const STORAGE_KEY = 'delivery_app_data';
+const SESSION_DURATION = 24 * 60 * 60 * 1000;
+const PLANILHA_ID = '1Ih4QIhWBfnV5L12uc0kyBabF7zCk_iKJoXyyjcxlIss';
+const API_URL_PRODUTOS = `https://opensheet.elk.sh/${PLANILHA_ID}/1`;
+const API_URL_PEDIDOS = `https://opensheet.elk.sh/${PLANILHA_ID}/2`;
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7bCjr3icuHPxqGHTv6V39zXqGTToMH-toN6ABB2Fz8OtsNLcKanDJ0wmmGf9ABplN/exec';
+
+const LATITUDE_CENTRAL = -4.169490;
+const LONGITUDE_CENTRAL = -38.917917;
+const RAIO_BASE_METROS = 100;
+const TAXA_POR_RAIO = 2.00;
+const TAXA_MINIMA = 5.00;
+
+let cart = [];
+let notifications = [];
+let orders = [];
+let currentView = 'home';
+let unreadNotifications = 0;
+let products = [];
+let categories = [];
+let lastUpdateId = 0;
+let messageIds = {};
+let processedCommands = new Set();
+let lastLocalizacaoData = null;
+let cartTimeout;
+let syncInterval;
+let taxaEntrega = 0;
+let isProcessingCheckout = false;
+  
+function calcularDistancia(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c;
+}
+
+function calcularTaxaEntrega(latUsuario, lonUsuario) {
+  const distancia = calcularDistancia(
+    LATITUDE_CENTRAL, LONGITUDE_CENTRAL,
+    latUsuario, lonUsuario
+  );
+  
+  if (distancia <= RAIO_BASE_METROS) {
+    return TAXA_MINIMA;
+  }
+  
+  const quantidadeRaios = Math.ceil(distancia / RAIO_BASE_METROS);
+  const taxaCalculada = TAXA_MINIMA + ((quantidadeRaios - 1) * TAXA_POR_RAIO);
+  
+  return Math.max(taxaCalculada, TAXA_MINIMA);
+}
+
+async function carregarEstoque() {
+  try {
+    const [responseProdutos, responsePedidos] = await Promise.all([
+      fetch(API_URL_PRODUTOS),
+      fetch(API_URL_PEDIDOS)
+    ]);
+    
+    const produtosRaw = await responseProdutos.json();
+    const pedidosRaw = await responsePedidos.json();
+    
+    products = [];
+    categories = [];
+    
+    const mapaPedidos = {};
+    pedidosRaw.forEach(pedido => {
+      if (pedido.pedido) {
+        mapaPedidos[pedido.pedido] = {
+          status: pedido.status || '',
+          total: parseFloat(pedido.total) || 0,
+          endereco: pedido.endereco || '',
+          telefone: pedido.telefone || '',
+          itens: pedido.itens || '',
+          data: pedido.data || ''
+        };
+      }
+    });
+    
+    produtosRaw.forEach(linha => {
+      const id = Number(linha.id) || 0;
+      const categoria = linha.categoria || linha.Categoria || 'Sem Categoria';
+      const nome = linha.produto || linha.Produto || 'Produto sem nome';
+      
+      let precoValor = 0;
+      const precoRaw = linha.preco || linha.preço || linha['preço '] || linha.Preco || linha.Preço || '0';
+      if (precoRaw && precoRaw !== '') {
+        const precoStr = String(precoRaw).replace('R$', '').replace(',', '.').replace(/\s/g, '').trim();
+        precoValor = parseFloat(precoStr) || 0;
+      }
+      
+      const estoque = Number(linha.estoque) || 0;
+      const descricao = linha.descricao || linha.descrição || linha['descrição '] || linha.Descricao || linha.Descrição || '';
+      const imagem = linha.imagem || linha.imagem_url || `https://via.placeholder.com/400x200?text=${encodeURIComponent(nome)}`;
+      
+      let pedidoData = {};
+      const pedidoNumeroProduto = linha.pedido || '';
+      
+      if (pedidoNumeroProduto && mapaPedidos[pedidoNumeroProduto]) {
+        pedidoData = {
+          pedido: pedidoNumeroProduto,
+          status: mapaPedidos[pedidoNumeroProduto].status,
+          total: mapaPedidos[pedidoNumeroProduto].total,
+          endereco: mapaPedidos[pedidoNumeroProduto].endereco,
+          telefone: mapaPedidos[pedidoNumeroProduto].telefone,
+          itens: mapaPedidos[pedidoNumeroProduto].itens,
+          data: mapaPedidos[pedidoNumeroProduto].data
+        };
+      }
+      
+      if (id > 0 && nome !== 'Produto sem nome') {
+        const produto = {
+          id: id,
+          categoria: categoria,
+          nome: nome,
+          descricao: descricao,
+          preco: precoValor,
+          estoque: estoque,
+          imagem: imagem,
+          pedido: pedidoData.pedido || '',
+          status: pedidoData.status || '',
+          total: pedidoData.total || 0,
+          endereco: pedidoData.endereco || '',
+          telefone: pedidoData.telefone || '',
+          itens: pedidoData.itens || '',
+          data: pedidoData.data || ''
+        };
+        
+        products.push(produto);
+        
+        if (!categories.includes(categoria)) {
+          categories.push(categoria);
+        }
+      }
+    });
+
+    console.log('✅ Produtos carregados:', products.length);
+    
+    if (currentView === 'categories' || currentView === 'category-products') {
+      showCategories();
+    }
+  } catch (error) {
+    console.error('❌ Erro ao carregar planilha:', error);
+  }
+}
+
+async function salvarEstoque(dadosParaSalvar) {
+  try {
+    const dados = {
+      produtos: Array.isArray(dadosParaSalvar) ? dadosParaSalvar : [dadosParaSalvar]
+    };
+
+    const proxyUrl = 'https://corsproxy.io/?';
+    const urlCompleta = proxyUrl + encodeURIComponent(SCRIPT_URL);
+    
+    const response = await fetch(urlCompleta, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dados)
+    });
+
+    if (response.ok) {
+      const resultado = await response.text();
+      console.log('✅ Salvamento bem-sucedido:', resultado);
+      return true;
+    } else {
+      console.error('❌ Erro HTTP:', response.status);
+      return false;
+    }
+
+  } catch (err) {
+    console.error("❌ Erro ao salvar:", err);
+    return false;
+  }
+}
+
+async function criarNovaNotificacaoParaStatus(codigoPedido, novoStatus) {
+  try {
+    await carregarEstoque();
+    const produtosDoPedido = products.filter(p => p.pedido == codigoPedido);
+    
+    const notificacaoExistente = notifications.find(n => 
+      n.codigo == codigoPedido && n.status === novoStatus
+    );
+    
+    if (notificacaoExistente) {
+      console.log(`⚠️ Notificação já existe para pedido #${codigoPedido} com status: ${novoStatus}`);
+      return;
+    }
+    
+    if (produtosDoPedido.length > 0) {
+      const primeiroProduto = produtosDoPedido[0];
+      const novaNotificacao = {
+        codigo: codigoPedido,
+        msg: `Pedido #${codigoPedido}: ${novoStatus}`,
+        data: new Date().toLocaleString('pt-BR'),
+        status: novoStatus,
+        total: parseFloat(primeiroProduto.total) || 0,
+        endereco: primeiroProduto.endereco || '',
+        telefone: primeiroProduto.telefone || '',
+        itens: primeiroProduto.itens || '',
+        lida: false
+      };
+      
+      notifications.unshift(novaNotificacao);
+      
+      if (notifications.length > 50) {
+        notifications = notifications.slice(0, 50);
+      }
+      
+      unreadNotifications++;
+      updateNotificationCounter();
+      saveToStorage();
+      
+      if (currentView === 'notifs') {
+        showNotifs();
+      }
+      
+      console.log(`✅ Nova notificação criada: Pedido #${codigoPedido} - ${novoStatus}`);
+    } else {
+      const novaNotificacao = {
+        codigo: codigoPedido,
+        msg: `Pedido #${codigoPedido}: ${novoStatus}`,
+        data: new Date().toLocaleString('pt-BR'),
+        status: novoStatus,
+        total: 0,
+        endereco: '',
+        telefone: '',
+        itens: '',
+        lida: false
+      };
+      
+      notifications.unshift(novaNotificacao);
+      unreadNotifications++;
+      updateNotificationCounter();
+      saveToStorage();
+      
+      console.log(`✅ Notificação básica criada: Pedido #${codigoPedido}`);
+    }
+  } catch (error) {
+    console.error('❌ Erro ao criar notificação:', error);
+  }
+}
+
+function iniciarTimeoutCarrinho() {
+  if (cartTimeout) clearTimeout(cartTimeout);
+  cartTimeout = setTimeout(() => {
+    if (cart.length > 0 && confirm('Carrinho expirou após 10 minutos. Limpar?')) {
+      cart = [];
+      saveToStorage();
+      showCart();
+    }
+  }, 600000);
+}
+
+async function checkTelegramUpdates() {
+  try {
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.ok && data.result.length > 0) {
+      data.result.forEach(update => {
+        if (update.message && update.message.text) {
+          const text = update.message.text;
+          if (text.startsWith('/repor')) { processarReporEstoque(update.message); }
+          if (text.startsWith('/list')) { processarListEstoque(update.message); }
+        }  
+        
+        if (update.callback_query) {
+          const data = update.callback_query.data;
+          const commandId = `${update.update_id}_${data}`;
+          
+          if (data.startsWith('status_') && !processedCommands.has(commandId)) {
+            processedCommands.add(commandId);
+            processarCallbackStatus(data, update.callback_query);
+          }
+        }
+        lastUpdateId = update.update_id;
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao verificar atualizações:', error);
+  }
+}
+
+const pedidosBloqueados = new Set();
+
+async function buscarPedidoAtualDaPlanilha(codigoPedido) {
+  try {
+    await carregarEstoque();
+    
+    const produtosDoPedido = products.filter(p => p.pedido == codigoPedido);
+    
+    if (produtosDoPedido.length > 0) {
+      const primeiroProduto = produtosDoPedido[0];
+      return {
+        codigo: codigoPedido,
+        status: primeiroProduto.status || 'Pedido recebido',
+        total: parseFloat(primeiroProduto.total) || 0,
+        local: primeiroProduto.endereco || 'Endereço não informado',
+        whatsapp: primeiroProduto.telefone || 'Telefone não informado',
+        produtos: primeiroProduto.itens ? [{ nome: primeiroProduto.itens, qtd: 1 }] : [{ nome: 'Produto', qtd: 1 }],
+        data: primeiroProduto.data || new Date().toLocaleString('pt-BR')
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Erro ao buscar pedido da planilha:', error);
+    return null;
+  }
+}
+
+async function atualizarMensagemTelegramExistente(codigoPedido, novoStatus) {
+  try {
+    const pedido = await buscarPedidoAtualDaPlanilha(codigoPedido);
+    
+    if (pedido && messageIds[codigoPedido]) {
+      const inlineKeyboard = {
+        inline_keyboard: [
+          [ { text: "✅ Pago", callback_data: `status_${codigoPedido}_pago` }, 
+            { text: "👨‍🍳 Preparando", callback_data: `status_${codigoPedido}_preparando` } ],
+          [ { text: "🚚 Entrega", callback_data: `status_${codigoPedido}_entrega` }, 
+            { text: "🎉 Entregue", callback_data: `status_${codigoPedido}_entregue` } ],
+          [ { text: "❌ Cancelar", callback_data: `status_${codigoPedido}_cancelado` } ]
+        ]
+      };
+      
+      // ATUALIZA com o NOVO status
+      const message = `📦 *PEDIDO #${pedido.codigo}* - ${novoStatus}\n\n💰 *Total:* R$ ${pedido.total.toFixed(2)}\n📍 *Endereço:* ${pedido.local}\n📱 *Telefone:* ${pedido.whatsapp}\n📋 *Itens:* ${pedido.produtos.map(p => `${p.nome} (x${p.qtd})`).join(', ')}\n⏰ *Data:* ${pedido.data}`;
+      
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: CHAT_ID,
+          message_id: messageIds[codigoPedido],
+          text: message,
+          parse_mode: 'Markdown',
+          reply_markup: inlineKeyboard
+        })
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erro ao atualizar mensagem Telegram:', error);
+  }
+  }
+
+
+
+          
+ async function processarCallbackStatus(data, callbackObj) {
+  const match = data.match(/status_(\d+)_(\w+)/);
+  if (!match) return;
+  
+  const codigo = parseInt(match[1]);
+  const novoStatus = match[2].toLowerCase();
+  
+
+     // **0. VERIFICA SE PEDIDO JÁ FOI CANCELADO**
+  const chaveCancelado = `${codigo}_cancelado`;
+  if (processedCommands.has(chaveCancelado)) {
+    if (callbackObj?.id) {
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          callback_query_id: callbackObj.id,
+          text: 'Pedido já cancelado!',
+          show_alert: true
+        })
+      });
+    }
+    return;
+  }
+   // **1. BLOQUEIO DE CLIQUE DUPLO (primeiro!)**
+  const chaveClique = `${codigo}_${novoStatus}`;
+  if (processedCommands.has(chaveClique)) {
+    if (callbackObj?.id) {
+      if (novoStatus === 'entregue') {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            callback_query_id: callbackObj.id,
+            text: 'Pedido já entregue.',
+            show_alert: true
+          })
+        });
+      } else {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            callback_query_id: callbackObj.id,
+            text: 'Você já clicou aqui!',
+            show_alert: true
+          })
+        });
+      }
+    }
+    return;
+  }
+  
+  // Marca que já clicou
+  processedCommands.add(chaveClique);
+  
+  await carregarEstoque();
+  const produtosDoPedido = products.filter(p => p.pedido == codigo);
+  const statusAtual = produtosDoPedido.length > 0 ? produtosDoPedido[0].status.toLowerCase() : '';
+  
+  const statusMap = {
+    'pago': '✅ Pagamento confirmado',
+    'preparando': '👨‍🍳 Preparando pedido',
+    'entrega': '🚚 Saiu para entrega',
+    'entregue': '🎉 Pedido entregue',
+    'cancelado': '❌ Pedido cancelado'
+  };
+  
+  const textoStatus = statusMap[novoStatus] || novoStatus;
+  
+  // **2. CANCELAR não pode se JÁ CLICOU em outros botões - CORRIGIDO**
+  if (novoStatus === 'cancelado') {
+    // Verifica se já clicou em QUALQUER outro botão para este pedido
+    let jaClicouEmOutros = false;
+    for (const chave of processedCommands.keys()) {
+      if (chave.startsWith(`${codigo}_`)) {
+        const statusClicado = chave.split('_')[1];
+        // Se já clicou em pago, preparando, entrega ou entregue (não conta o próprio cancelado)
+        if (['pago', 'preparando', 'entrega', 'entregue'].includes(statusClicado)) {
+          jaClicouEmOutros = true;
+          break;
+        }
+      }
+    }
+    
+    // **TAMBÉM verifica se já tem status na planilha**
+    const statusBloqueantes = ['pago', 'preparando', 'entrega', 'entregue'];
+    const temStatusNaPlanilha = statusBloqueantes.some(s => statusAtual.includes(s));
+    
+    if (jaClicouEmOutros || temStatusNaPlanilha) {
+      if (callbackObj?.id) {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            callback_query_id: callbackObj.id,
+            text: 'Não pode cancelar após iniciar o pedido.',
+            show_alert: true
+          })
+        });
+      }
+      processedCommands.delete(chaveClique);
+      return;
+    }
+  }
+  
+  // **3. SEQUÊNCIA CORRIGIDA - PERMITE CORRIGIR**
+  const ordemStatus = ['pago', 'preparando', 'entrega', 'entregue'];
+  if (novoStatus !== 'cancelado') {
+    const indexAtual = ordemStatus.findIndex(s => statusAtual.includes(s));
+    const indexNovo = ordemStatus.indexOf(novoStatus);
+
+    // **BLOQUEIA voltar OU pular mais de uma etapa**
+    if (indexAtual !== -1 && indexNovo !== -1 && 
+        (indexNovo < indexAtual || indexNovo > indexAtual + 1)) {
+      
+      if (callbackObj?.id) {
+        // **MENSAGEM MELHOR**
+        let mensagemErro;
+        if (indexNovo < indexAtual) {
+          mensagemErro = `❌ Não pode voltar etapas!`;
+        } else if (indexAtual === -1 && indexNovo > 0) {
+          mensagemErro = `❌ Comece por "Pago" primeiro!`;
+        } else {
+          const proximo = ordemStatus[indexAtual + 1];
+          mensagemErro = `❌ Pule etapa! Clique em "${statusMap[proximo]}" primeiro.`;
+        }
+        
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            callback_query_id: callbackObj.id,
+            text: mensagemErro,
+            show_alert: true
+          })
+        });
+      }
+      // **REMOVE PARA PERMITIR CORRIGIR**
+      processedCommands.delete(chaveClique);
+      return;
+    }
+  }
+  
+  // ATUALIZA
+  await atualizarStatusNaPlanilha(codigo, textoStatus);
+  await atualizarMensagemTelegramExistente(codigo, textoStatus);
+  await criarNovaNotificacaoParaStatus(codigo, textoStatus);
+  
+  if (callbackObj?.id) {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        callback_query_id: callbackObj.id,
+        text: `Status atualizado: ${textoStatus}`,
+        show_alert: false
+      })
+    });
+  }
+}
+  
+
+async function atualizarStatusNaPlanilha(codigoPedido, novoStatus) {
+  try {
+    // Busca o pedido LOCAL para ter dados completos
+    const pedidoLocal = orders.find(o => o.codigo == codigoPedido);
+    
+    // DADOS MÍNIMOS - APENAS para atualizar status na aba "pedido"
+    const dadosParaAtualizar = [{
+      id: '0',  // ← '0' = NÃO é produto específico, não baixa estoque
+      pedido: codigoPedido.toString(),
+      status: novoStatus,
+      // Envia dados COMPLETOS do pedido (se existirem localmente)
+      total: pedidoLocal?.total || 0,
+      endereco: pedidoLocal?.local || '',
+      telefone: pedidoLocal?.whatsapp || '',
+      itens: pedidoLocal?.produtos?.map(p => `${p.nome} (x${p.qtd})`).join(', ') || '',
+      data: pedidoLocal?.data || new Date().toLocaleString('pt-BR'),
+      qtd: 0  // ← 0 = NÃO baixa estoque!
+      // NÃO envia: categoria, produto, preco, estoque, imagem, descricao
+    }];
+    
+    console.log(`📤 Enviando atualização de status: Pedido #${codigoPedido} - ${novoStatus}`);
+    
+    await salvarEstoque(dadosParaAtualizar);
+    
+    console.log(`✅ Status atualizado na planilha: Pedido #${codigoPedido} - ${novoStatus}`);
+    
+  } catch (error) {
+    console.error('❌ Erro ao atualizar status na planilha:', error);
+  }
+  }
+  
+async function alertaEstoqueZerado(produto) {
+  const mensagem = `🚨 *ESTOQUE ZERADO!*\n\n📦 ${produto.nome} está ESGOTADO!\n`;
+  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ chat_id: CHAT_ID, text: mensagem, parse_mode: 'Markdown' })
+  });
+}
+
+
+
+function iniciarSincronizacao() {
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = setInterval(async () => {
+    await carregarEstoque();
+  }, 10000);
+}
+
+async function verificarAtualizacoesStatus() {
+  try {
+    await carregarEstoque();
+    
+    for (const order of orders) {
+      const produtosDoPedido = products.filter(p => p.pedido == order.codigo);
+      
+      if (produtosDoPedido.length > 0) {
+        const statusAtual = produtosDoPedido[0].status || '';
+        const statusAnterior = order.status || '';
+        
+        if (statusAtual !== statusAnterior && statusAtual) {
+          await criarNovaNotificacaoParaStatus(order.codigo, statusAtual);
+          order.status = statusAtual;
+          saveToStorage();
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erro ao verificar atualizações:', error);
+  }
+}
+
+setInterval(checkTelegramUpdates, 2000);
+
+function loadFromStorage() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      const now = Date.now();
+      
+      if (now - data.timestamp < SESSION_DURATION) {
+        cart = data.cart || [];
+        notifications = data.notifications || [];
+        orders = data.orders || [];
+        unreadNotifications = data.unreadNotifications || 0;
+        updateNotificationCounter();
+        if (cart.length > 0) {
+          iniciarTimeoutCarrinho();
+        }
+      } else {
+        clearStorage();
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao carregar dados:', e);
+    clearStorage();
+  }
+}
+
+function saveToStorage() {
+  const data = {
+    cart: cart,
+    notifications: notifications,
+    orders: orders,
+    unreadNotifications: unreadNotifications,
+    timestamp: Date.now()
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function clearStorage() {
+  cart = [];
+  notifications = [];
+  orders = [];
+  unreadNotifications = 0;
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+function updateNotificationCounter() {
+  const counter = document.getElementById('notificationCounter');
+  const notifBtn = document.getElementById('notifBtn');
+  
+  if (unreadNotifications > 0) {
+    counter.style.display = 'flex';
+    counter.textContent = unreadNotifications > 99 ? '99+' : unreadNotifications;
+    notifBtn.classList.add('notification-alert');
+  } else {
+    counter.style.display = 'none';
+    notifBtn.classList.remove('notification-alert');
+  }
+  saveToStorage();
+}
+
+function addNotification() {
+  unreadNotifications++;
+  updateNotificationCounter();
+}
+
+function showHelp(){
+  currentView = 'help-main';
+  const html = `
+    <div class='card'>
+      <h3>📚 Central de Ajuda</h3>
+      <p>Escolha uma categoria para ver as instruções:</p>
+      <div class='category-item' onclick='showHelpCategory("categorias")'><h4 style='margin:0'>🏷️ Como usar Categorias</h4></div>
+      <div class='category-item' onclick='showHelpCategory("carrinho")'><h4 style='margin:0'>🛒 Como usar o Carrinho</h4></div>
+      <div class='category-item' onclick='showHelpCategory("notificacoes")'><h4 style='margin:0'>📱 Notificações e Pedidos</h4></div>
+      <div class='category-item' onclick='showHelpCategory("pagamento")'><h4 style='margin:0'>💳 Processo de Pagamento</h4></div>
+      <div class='category-item' onclick='showHelpCategory("contato")'><h4 style='margin:0'>📞 Contato e Suporte</h4></div>
+    </div>`;
+  document.getElementById('view').innerHTML = html;
+}
+
+function showHelpCategory(categoria){
+  currentView = 'help-category';
+  const conteudos = {
+    categorias: { titulo: "🏷️ Como usar Categorias", texto: `1. <strong>Navegação</strong>: Toque em "Categoria" no menu inferior para ver todas as categorias disponíveis.<br><br>2. <strong>Seleção</strong>: Escolha uma categoria como "Pizza", "Bebidas" ou "Sobremesas".<br><br>3. <strong>Produtos</strong>: Dentro de cada categoria, você verá todos os produtos disponíveis com foto, descrição e preço.<br><br>4. <strong>Adicionar</strong>: Toque em "Adicionar ao Carrinho" para incluir o produto no seu pedido.` },
+    carrinho: { titulo: "🛒 Como usar o Carrinho", texto: `1. <strong>Acesso</strong>: Toque em "Carrinho" no menu inferior para ver seus itens.<br><br>2. <strong>Quantidade</strong>: Use os botões "+" e "-" para ajustar as quantidades.<br><br>3. <strong>Remover</strong>: Diminua a quantidade para zero para remover um item.<br><br>4. <strong>Finalizar</strong>: Toque em "Finalizar Pedido" quando estiver pronto para pagar.<br><br>5. <strong>Limpar</strong>: Use "Limpar Carrinho" para remover todos os itens.` },
+    notificacoes: { titulo: "📱 Notificações e Pedidos", texto: `1. <strong>Acompanhamento</strong>: Toque em "Notificações" para ver o status dos seus pedidos.<br><br>2. <strong>Status</strong>: Acompanhe cada etapa: recebido, em preparo, saiu para entrega, entregue.<br><br>3. <strong>Nota Fiscal</strong>: Pedidos com pagamento confirmado permitem baixar a nota fiscal.<br><br>4. <strong>Badge</strong>: O número vermelho indica novas notificações não lidas.` },
+    pagamento: { titulo: "💳 Processo de Pagamento", texto: `1. <strong>Localização</strong>: O app detecta automaticamente seu endereço via GPS.<br><br>2. <strong>Dados</strong>: Confirme ou edite o endereço e informe seu telefone.<br><br>3. <strong>PIX</strong>: Você receberá a chave PIX e valor exato para pagamento.<br><br>4. <strong>Comprovante</strong>: Envie foto ou PDF do comprovante pelo próprio app.<br><br>5. <strong>Confirmação</strong>: Após análise, seu pedido será confirmado.` },
+    contato: { titulo: "📞 Contato e Suporte", texto: `1. <strong>Telefone</strong>: (11) 99999-9999 para emergências<br><br>2. <strong>WhatsApp</strong>: Use o mesmo número para mensagens<br><br>3. <strong>Email</strong>: contato@delivery.com para dúvidas<br><br>4. <strong>PIX</strong>: Chave 123.456.789-00 para pagamentos<br><br>5. <strong>Horário</strong>: Atendimento das 10h às 22h` }
+  };
+  
+  const html = `<div class='card'><b>${conteudos[categoria].titulo}</b><div>${conteudos[categoria].texto}</div><button class="btn" onclick="showHelp()" style="margin-top: 10px;">← Voltar à Ajuda</button></div>`;
+  document.getElementById('view').innerHTML = html;
+}
+
+async function salvarPedidoNaPlanilha(pedido) {
+  try {
+    await carregarEstoque();
+    
+    const dadosParaSalvar = [];
+    
+    for (const itemPedido of pedido.produtos) {
+      const produto = products.find(p => p.id === itemPedido.id);
+      if (produto) {
+        const novoEstoque = (produto.estoque || 0) - (itemPedido.qtd || 0);
+        
+        const dadosProduto = {
+          id: String(produto.id),
+          categoria: produto.categoria || '',
+          produto: produto.nome || '',
+          preco: produto.preco || 0,
+          estoque: novoEstoque >= 0 ? novoEstoque : 0,
+          imagem: produto.imagem || '',
+          descricao: produto.descricao || '',
+          pedido: pedido.codigo || '',
+          status: pedido.status || '',
+          total: pedido.total || 0,
+          endereco: pedido.local || '',
+          telefone: pedido.whatsapp || '',
+          itens: pedido.produtos.map(p => `${p.nome} (x${p.qtd})`).join(', '),
+          data: pedido.data || '',
+          qtd: itemPedido.qtd || 1
+        };
+        
+        dadosParaSalvar.push(dadosProduto);
+        
+        if (novoEstoque <= 0) {
+          alertaEstoqueZerado(produto);
+        }
+      }
+    }
+    
+    if (dadosParaSalvar.length > 0) {
+      await salvarEstoque(dadosParaSalvar);
+      console.log('✅ Pedido salvo na planilha:', pedido.codigo);
+    }
+  } catch (error) {
+    console.error('❌ Erro ao salvar pedido na planilha:', error);
+  }
+}
+
+async function sendTelegramNotification(pedido) {
+  const statusInicial = "📦 Pedido recebido";
+  
+  const inlineKeyboard = {
+    inline_keyboard: [
+      [ { text: "✅ Pago", callback_data: `status_${pedido.codigo}_pago` }, { text: "👨‍🍳 Preparando", callback_data: `status_${pedido.codigo}_preparando` } ],
+      [ { text: "🚚 Entrega", callback_data: `status_${pedido.codigo}_entrega` }, { text: "🎉 Entregue", callback_data: `status_${pedido.codigo}_entregue` } ],
+      [ { text: "❌ Cancelar", callback_data: `status_${pedido.codigo}_cancelado` } ]
+    ]
+  };
+  
+  
+  const message = `📦 *PEDIDO #${pedido.codigo}*\n\n💰 *Total:* R$ ${pedido.total.toFixed(2)}\n📍 *Endereço:* ${pedido.local}\n📱 *Telefone:* ${pedido.whatsapp}\n📋 *Itens:* ${pedido.produtos.map(p => `${p.nome} (x${p.qtd})`).join(', ')}\n⏰ *Data:* ${pedido.data}`;
+  
+  try {
+    const messageUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const messageResponse = await fetch(messageUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        chat_id: CHAT_ID, 
+        text: message, 
+        parse_mode: 'Markdown', 
+        reply_markup: inlineKeyboard 
+      })
+    });
+    
+    const messageResult = await messageResponse.json();
+    
+    if (messageResult.ok && messageResult.result) {
+      messageIds[pedido.codigo] = messageResult.result.message_id;
+    }
+    
+    await salvarPedidoNaPlanilha(pedido);
+    
+    await criarNovaNotificacaoParaStatus(pedido.codigo, statusInicial);
+    
+    if (pedido.mapaUrl) {
+      await sendLocalizacaoToTelegram(pedido);
+    }
+    
+    if (pedido.comprovante) {
+      await sendComprovanteToTelegram(pedido);
+    }
+    
+    saveToStorage();
+    
+  } catch (error) {
+    console.error('Erro ao conectar com Telegram:', error);
+  }
+}
+
+async function sendLocalizacaoToTelegram(pedido) {
+  try {
+    const complementoTexto = pedido.desc ? `\n📝 *Complemento:* ${pedido.desc}` : '';
+    const message = `📍 *LOCALIZAÇÃO DO PEDIDO #${pedido.codigo}*\n\n🗺️ [Abrir no Google Maps](${pedido.mapaUrl})${complementoTexto}`;
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: CHAT_ID, text: message, parse_mode: 'Markdown' })
+    });
+  } catch (error) {
+    console.error('Erro ao enviar localização:', error);
+  }
+}
+
+async function sendComprovanteToTelegram(pedido) {
+  try {
+    const base64Data = pedido.comprovante.split(',')[1];
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    const blob = new Blob([bytes], { type: pedido.comprovanteTipo });
+    const formData = new FormData();
+    formData.append('chat_id', CHAT_ID);
+    formData.append('document', blob, pedido.comprovanteNome);
+    formData.append('caption', `📎 COMPROVANTE PEDIDO #${pedido.codigo}`);
+    
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`;
+    const response = await fetch(url, { method: 'POST', body: formData });
+    
+  } catch (error) {
+    console.error('Erro ao enviar comprovante para Telegram:', error);
+  }
+}
+
+function gerarNotaFiscal(pedido) {
+  return {
+    codigo: pedido.codigo,
+    data: pedido.data,
+    cliente: { telefone: pedido.whatsapp, endereco: pedido.local },
+    itens: pedido.produtos.map(item => ({ nome: item.nome, quantidade: item.qtd, preco_unitario: item.preco, subtotal: item.preco * item.qtd })),
+    totais: { subtotal: pedido.produtos.reduce((sum, item) => sum + (item.preco * item.qtd), 0), total: pedido.total },
+    status: "Pagamento confirmado",
+    comprovante: pedido.comprovante ? "Enviado" : "Não enviado"
+  };
+}
+
+
+function baixarNotaFiscalIndividual(codigo) {
+  let pedido = orders.find(o => o.codigo === codigo);
+  
+  if (!pedido) {
+    alert('Pedido não encontrado na memória local!');
+    return;
+  }
+  
+  // CALCULA SUBTOTAL DOS PRODUTOS
+  const subtotalProdutos = pedido.produtos.reduce((sum, item) => 
+    sum + (item.preco * item.qtd), 0
+  );
+  
+  // CALCULA TAXA
+  let taxa = pedido.taxaEntrega || 0;
+  if (taxa === 0 && pedido.total > subtotalProdutos) {
+    taxa = pedido.total - subtotalProdutos;
+  }
+  
+  const notaHTML = `
+    <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center; border-bottom: 2px solid #3a0060; padding-bottom: 15px; margin-bottom: 20px;">
+        <h1 style="color: #3a0060; margin: 0;"> NOTA FISCAL</h1>
+        <p style="margin: 5px 0;"><strong>Delivery Express</strong></p>
+        <p style="margin: 5px 0; font-size: 14px;">CNPJ: 12.345.678/0001-90</p>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <p><strong>Pedido:</strong> #${pedido.codigo}</p>
+        <p><strong>Data:</strong> ${pedido.data}</p>
+        <p><strong>Status:</strong> Pagamento confirmado</p>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+        <thead>
+          <tr style="background: #f5f5f5;">
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Item</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Qtd</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Valor</th>
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pedido.produtos.map(item => `
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 8px;">${item.nome}</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${item.qtd}</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">R$ ${item.preco.toFixed(2)}</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">R$ ${(item.preco * item.qtd).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+          
+          ${taxa > 0 ? `
+            <tr style="font-weight: bold;">
+              <td style="border: 1px solid #ddd; padding: 8px;">Taxa de Entrega</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">1</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">R$ ${taxa.toFixed(2)}</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">R$ ${taxa.toFixed(2)}</td>
+            </tr>
+          ` : ''}
+        </tbody>
+        <tfoot>
+          <tr style="border-top: 2px solid #ddd;">
+            <td colspan="3" style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">
+              Subtotal dos Produtos:
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">
+              R$ ${subtotalProdutos.toFixed(2)}
+            </td>
+          </tr>
+          
+          ${taxa > 0 ? `
+            <tr>
+              <td colspan="3" style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">
+                Taxa de Entrega:
+              </td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">
+                R$ ${taxa.toFixed(2)}
+              </td>
+            </tr>
+          ` : ''}
+          
+          <tr>
+            <td colspan="3" style="border: 1px solid #ddd; padding: 8px; text-align: right; font-size: 18px; font-weight: bold; color: #3a0060;">
+              TOTAL A PAGAR:
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-size: 18px; font-weight: bold; color: #3a0060;">
+              R$ ${pedido.total.toFixed(2)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center; border-top: 1px solid #ddd; padding-top: 15px;">
+        <p>Obrigado pela preferência! </p>
+        <p>Telefone: (11) 99999-9999 | delivery@express.com</p>
+      </div>
+    </div>
+  `;
+  
+  const blob = new Blob([notaHTML], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `nota-fiscal-${pedido.codigo}.html`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+  
+function goBack(){
+  if (currentView === 'help-main' || currentView === 'help-category') { showHome(); return; }
+  if (currentView === 'checkout') {
+    if (lastLocalizacaoData) { showDadosEntrega(lastLocalizacaoData); }
+    else { showDadosEntrega(); }
+    return;
+  }
+  
+  if(currentView === 'dados-entrega') { showCart(); return; }
+  else if(currentView === 'categories' || currentView === 'category-products' || currentView === 'cart' || currentView === 'notifs'){ showHome(); }
+  else if(currentView === 'product-list'){ showCategories(); }
+}
+
+function openContact(){ 
+  alert("Telefone: (11) 99999-9999\nEmail: contato@delivery.com\nChave PIX: 123.456.789-00"); 
+}
+
+function showHome(){
+  currentView = 'home';
+  document.getElementById('view').innerHTML = `
+    <div class='hero'>
+      <div>
+        <h2 style="margin:0 0 8px 0">Bem-vindo ao Delivery</h2>
+        <p style="margin:0">Peça suas pizzas favoritas!</p>
+      </div>
+    </div>`;
+}
+
+function showCategories(){
+  currentView = 'categories';
+  let html = "<h3>Categorias</h3>";
+  
+  categories.forEach(category => {
+    html += `<div class='category-item' onclick='showCategoryProducts("${category}")'><h4 style="margin:0">${category}</h4></div>`;
+  });
+  
+  if (categories.length === 0) {
+    html += '<p style="color:#888; text-align:center; padding:20px;">Carregando categorias...</p>';
+  }
+  
+  document.getElementById('view').innerHTML = html;
+}
+
+function showCategoryProducts(categoryName){
+  currentView = 'category-products';
+  let html = `<h3>Categoria: ${categoryName}</h3>`;
+  const categoryProducts = products.filter(p => p.categoria === categoryName);
+  if(categoryProducts.length === 0){
+    html += '<p>Nenhum produto disponível nesta categoria.</p>';
+  } else {
+    categoryProducts.forEach(p => {
+      const emEstoque = p.estoque > 0;
+      html += `<div class='card'>
+        <img src='${p.imagem}' alt='${p.nome}' onerror="this.src='https://via.placeholder.com/400x200?text=Imagem+Não+Carregada'"/>
+        <h4 style="margin:8px 0 6px 0">${p.nome}</h4>
+        <p style="margin:0 0 8px 0; font-size:14px; color:#555;">${p.descricao || 'Sem descrição'}</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <button class="btn" onclick='addToCart(${p.id})' ${!emEstoque ? 'disabled style="opacity:0.5;"' : ''}>
+            ${emEstoque ? 'Adicionar ao Carrinho' : 'Esgotado'}
+          </button>
+          <span style='margin-left:10px; font-weight:bold'>R$ ${p.preco.toFixed(2)}</span>
+        </div>
+      </div>`;
+    });
+  }
+  html += `<button class="btn-ghost" onclick="showCategories()" style="margin-top: 15px;">← Voltar para Categorias</button>`;
+  document.getElementById('view').innerHTML = html;
+}
+
+function addToCart(id){
+  let p = products.find(x => x.id === id);
+  if (!p) return;
+  if (p.estoque <= 0) { alert(`❌ ${p.nome} ESGOTADO!`); return; }
+  let itemNoCarrinho = cart.find(c => c.id === id);
+  let quantidadeTotal = itemNoCarrinho ? itemNoCarrinho.qtd + 1 : 1;
+  if (p.estoque < quantidadeTotal) { alert(`❌ Estoque insuficiente de ${p.nome}!`); return; }
+  if (itemNoCarrinho) { itemNoCarrinho.qtd++; } else { cart.push({ id: p.id, nome: p.nome, preco: p.preco, qtd: 1 }); }
+  saveToStorage(); showCart(); alert(`${p.nome} adicionado ao carrinho!`); iniciarTimeoutCarrinho(); 
+}
+
+function showCart(){
+  currentView = 'cart';
+  
+  let html = '<h3>Seu Carrinho</h3>';
+  if(cart.length === 0){ 
+    html += '<p>Carrinho vazio</p>';
+  } else {
+    let total = 0;
+    cart.forEach(item => {
+      let subtotal = item.preco * item.qtd;
+      total += subtotal;
+      html += `<div class='card'>
+        <b>${item.nome}</b>
+        <div style="margin:8px 0">Quantidade: 
+          <button class="btn-ghost" onclick='decQty(${item.id})'>-</button> 
+          <span style="margin:0 10px">${item.qtd}</span> 
+          <button class="btn" onclick='incQty(${item.id})'>+</button>
+        </div>
+        <div>Subtotal: R$ ${subtotal.toFixed(2)}</div>
+      </div>`;
+    });
+    html += `
+      <div class='card'>
+        <h3>Total: R$ ${total.toFixed(2)}</h3>
+        <div class="finalizar-btn-container">
+          <button onclick='startCheckout()' class="btn" style="width: 100%; padding: 15px; font-size: 18px;">✅ Finalizar Pedido</button>
+        </div>
+        <button onclick='clearCart()' class="btn-ghost">Limpar Carrinho</button>
+        <button onclick='showCategories()' class="btn-ghost">← Voltar Categorias</button>
+      </div>`;
+  }
+  document.getElementById('view').innerHTML = html;
+}
+
+function incQty(id){ 
+  let item = cart.find(c => c.id === id); 
+  if(item){ 
+    let p = products.find(x => x.id === id);
+    if (p && p.estoque < (item.qtd + 1)) { alert(`❌ Estoque insuficiente de ${p.nome}!`); return; }
+    item.qtd++; saveToStorage(); showCart(); 
+  } 
+}
+
+function decQty(id){ 
+  let item = cart.find(c => c.id === id); 
+  if(item){ 
+    item.qtd--; 
+    if(item.qtd <= 0) { cart = cart.filter(x => x.id !== id); }
+    saveToStorage(); showCart(); 
+  } 
+}
+
+function clearCart(){ 
+  if(confirm('Tem certeza que deseja limpar o carrinho?')){ 
+    cart = []; saveToStorage(); showCart(); 
+  } 
+}
+
+async function getEnderecoFromCoords(lat, lng) {
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format: 'application/json'}&lat=${lat}&lon=${lng}&accept-language=pt-BR`);
+    const data = await response.json();
+    if(data && data.address) {
+      const addr = data.address;
+      let enderecoCompleto = '';
+      if(addr.road) enderecoCompleto += addr.road;
+      if(addr.house_number) enderecoCompleto += ', ' + addr.house_number;
+      if(addr.neighbourhood) enderecoCompleto += ' - ' + addr.neighbourhood;
+      if(addr.suburb && addr.suburb !== addr.neighbourhood) enderecoCompleto += ', ' + addr.suburb;
+      if(addr.city) enderecoCompleto += ', ' + addr.city;
+      if(addr.state) enderecoCompleto += ' - ' + addr.state;
+      return { 
+        endereco: enderecoCompleto || `Localização: ${lat.toFixed(4)}, ${lng.toFixed(4)}`, 
+        mapaUrl: `https://maps.google.com/?q=${lat},${lng}`,
+        latitude: lat,
+        longitude: lng
+      };
+    }
+    return { 
+      endereco: `Localização: ${lat.toFixed(4)}, ${lng.toFixed(4)}`, 
+      mapaUrl: `https://maps.google.com/?q=${lat},${lng}`,
+      latitude: lat,
+      longitude: lng
+    };
+  } catch (error) {
+    console.error('Erro ao buscar endereço:', error);
+    return { 
+      endereco: `Localização: ${lat.toFixed(4)}, ${lng.toFixed(4)}`, 
+      mapaUrl: `https://maps.google.com/?q=${lat},${lng}`,
+      latitude: lat,
+      longitude: lng
+    };
+  }
+}
+
+function startCheckout(){
+  if(isProcessingCheckout) {
+    alert('⚠️ Já está processando um pedido. Aguarde...');
+    return;
+  }
+  
+  if(cart.length === 0){ alert('Carrinho vazio'); return; }
+  if(navigator.geolocation){
+    isProcessingCheckout = true;
+    document.getElementById('view').innerHTML = '<div class="loading">📍 Detectando sua localização...</div>';
+    navigator.geolocation.getCurrentPosition(
+      async function(position){
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const localizacaoData = await getEnderecoFromCoords(lat, lng);
+        
+        taxaEntrega = calcularTaxaEntrega(lat, lng);
+        localizacaoData.taxaEntrega = taxaEntrega;
+        
+        lastLocalizacaoData = { ...localizacaoData };
+        
+        isProcessingCheckout = false;
+        showDadosEntrega(localizacaoData);
+      },
+      function(error){
+        console.log('Erro GPS:', error);
+        isProcessingCheckout = false;
+        alert('❌ Localização obrigatória! Ative o GPS.');
+        showCart();
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  } else {
+    alert('❌ GPS não disponível! Ative a localização.');
+    showCart();
+  }
+}
+
+function showDadosEntrega(localizacaoData) {
+  currentView = 'dados-entrega';
+  
+  const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
+  const taxaEntregaAtual = localizacaoData.taxaEntrega || 0;
+  const totalComTaxa = totalProdutos + taxaEntregaAtual;
+  
+  const html = `
+    <div class="card">
+      <h3>Dados de Entrega</h3>
+      ${localizacaoData.endereco ? `
+        <p><strong>Endereço detectado:</strong></p>
+        <p style="background:#f0f8ff;padding:10px;border-radius:5px;color:#000">${localizacaoData.endereco}</p>
+        <p><small>Se o endereço estiver incorreto, edite abaixo:</small></p>
+      ` : ''}
+      
+      <p><strong>Taxa de entrega:</strong> R$ ${taxaEntregaAtual.toFixed(2)}</p>
+      <p><strong>Total com taxa:</strong> R$ ${totalComTaxa.toFixed(2)}</p>
+      
+      <form id="dadosForm">
+        <input type="tel" class="input-field" id="whatsapp" placeholder="Seu Telefone (com DDD)" required>
+        <input type="text" class="input-field" id="endereco" placeholder="Endereço completo" value="${localizacaoData.endereco || ''}" required>
+        <!-- CAMPO COMPLEMENTO COM LIMITADOR DE 30 CARACTERES -->
+        <input type="text" class="input-field" id="complemento" placeholder="Complemento ou ponto de referência" maxlength="30">
+        <input type="hidden" id="mapaUrl" value="${localizacaoData.mapaUrl || ''}">
+        <input type="hidden" id="taxaEntrega" value="${taxaEntregaAtual}">
+        
+        <div style="margin-top: 15px;">
+          <button type="submit" class="btn">Continuar para Pagamento</button>
+        </div>
+      </form>
+    </div>`;
+    
+  document.getElementById('view').innerHTML = html;
+  document.getElementById('dadosForm').onsubmit = function(e) {
+    e.preventDefault();
+    const whatsapp = document.getElementById('whatsapp').value;
+    const endereco = document.getElementById('endereco').value;
+    const complemento = document.getElementById('complemento').value;
+    const mapaUrl = document.getElementById('mapaUrl').value;
+    const taxaEntregaValor = parseFloat(document.getElementById('taxaEntrega').value) || 0;
+    
+    if (!whatsapp || !endereco) { alert('Por favor, preencha todos os campos obrigatórios.'); return; }
+    if (whatsapp.replace(/\D/g, '').length < 10) { alert('Por favor, insira um telefone válido com DDD.'); return; }
+    
+    showUploadComprovante({ 
+      endereco: endereco, 
+      mapaUrl: mapaUrl, 
+      whatsapp: whatsapp,
+      taxaEntrega: taxaEntregaValor
+    }, complemento);
+  };
+}
+
+// CORREÇÃO CRÍTICA - AQUI ESTÁ O PROBLEMA
+function showUploadComprovante(localizacaoData, descricao) {
+  currentView = 'checkout';
+  lastLocalizacaoData = localizacaoData;
+  
+  const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
+  const taxaEntregaAtual = localizacaoData.taxaEntrega || 0;
+  const totalComTaxa = totalProdutos + taxaEntregaAtual;
+  
+  const mapaHtml = localizacaoData.mapaUrl ? `<p><strong>Localização no mapa:</strong> <a href="${localizacaoData.mapaUrl}" target="_blank">Abrir no Google Maps</a></p>` : '';
+  
+  // CORREÇÃO: Removido o onclick do botão
+  const html = `
+    <div class="card">
+      <h3>Resumo do Pedido</h3>
+      <p><strong>Telefone:</strong> ${localizacaoData.whatsapp}</p>
+      <p><strong>Endereço:</strong> ${localizacaoData.endereco}</p>
+      ${mapaHtml}
+      <p><strong>Itens:</strong> ${cart.map(item => `${item.nome} x${item.qtd}`).join(', ')}</p>
+      <p><strong>Total do pedido:</strong> R$ ${totalProdutos.toFixed(2)}</p>
+      <p><strong>Taxa de entrega:</strong> R$ ${taxaEntregaAtual.toFixed(2)}</p>
+      <p><strong>Total final:</strong> R$ ${totalComTaxa.toFixed(2)}</p>
+    </div>
+    
+    <div class="pix-info">
+      <h3>Pagamento PIX</h3>
+      <p><strong>Chave PIX:</strong> 123.456.789-00</p>
+      <p><strong>Valor:</strong> R$ ${totalComTaxa.toFixed(2)}</p>
+      <p><strong>Beneficiário:</strong> Delivery Express</p>
+      <p><em>Envie o comprovante do pagamento PIX abaixo</em></p>
+    </div>
+    
+    <div class="card">
+      <h3>Enviar Comprovante de Pagamento PIX</h3>
+      <p>Envie uma foto ou PDF do comprovante (máximo 2 MB)</p>
+      <div class="upload-area" id="uploadArea">
+        <p>Arraste o arquivo aqui ou clique para selecionar</p>
+        <input type="file" id="fileInput" accept="image/*,.pdf" style="display: none">
+        <button class="btn" onclick="document.getElementById('fileInput').click()">Selecionar Arquivo</button>
+      </div>
+      <div id="fileInfo"></div>
+      <div class="finalizar-btn-container">
+        <button class="btn" id="submitBtn" disabled style="width: 100%; padding: 15px; font-size: 18px;">
+          Finalizar Pedido
+        </button>
+      </div>`;
+  
+  document.getElementById('view').innerHTML = html;
+  
+  const fileInput = document.getElementById('fileInput');
+  const uploadArea = document.getElementById('uploadArea');
+  const fileInfo = document.getElementById('fileInfo');
+  const submitBtn = document.getElementById('submitBtn');
+  
+  // Variável local para armazenar o arquivo
+  let selectedFile = null;
+  
+  uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
+  uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('active'); });
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault(); uploadArea.classList.remove('active');
+    if (e.dataTransfer.files.length) { handleFileSelect(e.dataTransfer.files[0]); }
+  });
+  
+  fileInput.addEventListener('change', (e) => { if (e.target.files.length) { handleFileSelect(e.target.files[0]); } });
+  
+  function handleFileSelect(file) {
+    if (file.size > 2 * 1024 * 1024) { alert('❌ Arquivo muito grande! Máximo 2 MB permitido.'); return; }
+    if (!file.type.match('image.*') && !file.type.match('application.pdf')) { alert('❌ Formato não permitido! Apenas imagens ou PDF.'); return; }
+    selectedFile = file;
+    const fileSize = (file.size / 1024 / 1024).toFixed(2);
+    fileInfo.innerHTML = `<div class="file-info"><strong>${file.name}</strong><br>Tipo: ${file.type}<br>Tamanho: ${fileSize} MB<br>✅ Arquivo pronto para envio</div>`;
+    submitBtn.disabled = false; submitBtn.classList.remove('btn-disabled');
+  }
+  
+  // CORREÇÃO: Event listener DIRETO no botão
+  submitBtn.addEventListener('click', async function() {
+    if (isProcessingCheckout) {
+      alert('⚠️ Já está processando um pedido. Aguarde...');
+      return;
+    }
+    
+    if (!selectedFile) { 
+      alert('❌ Selecione um arquivo de comprovante primeiro!'); 
+      return; 
+    }
+    
+    isProcessingCheckout = true;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Processando...';
+    
+    try {
+      const reader = new FileReader();
+      
+      reader.onload = async function(e) {
+        const comprovanteBase64 = e.target.result;
+        let codigoPedido = Math.floor(Math.random() * 900 + 100);
+        
+        const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
+        const totalComTaxa = totalProdutos + taxaEntregaAtual;
+        
+        let pedido = {
+          codigo: codigoPedido, 
+          produtos: [...cart], 
+          total: totalComTaxa,
+          taxaEntrega: taxaEntregaAtual,
+          totalProdutos: totalProdutos,
+          local: localizacaoData.endereco, 
+          mapaUrl: localizacaoData.mapaUrl, 
+          desc: descricao || '',
+          whatsapp: localizacaoData.whatsapp, 
+          comprovante: comprovanteBase64, 
+          comprovanteNome: selectedFile.name, 
+          comprovanteTipo: selectedFile.type,
+          data: new Date().toLocaleString('pt-BR'), 
+          status: '📦 Pedido recebido'
+        };
+        
+        orders.push(pedido);
+        
+        await sendTelegramNotification(pedido);
+        
+        alert(`✅ Pedido #${pedido.codigo} confirmado!\n💰 Total: R$ ${totalComTaxa.toFixed(2)}\n📍 Entrega em: ${localizacaoData.endereco}`);
+        
+        cart = []; 
+        saveToStorage(); 
+        showHome();
+        isProcessingCheckout = false;
+      };
+      
+      reader.onerror = function() { 
+        alert('❌ Erro ao ler o arquivo. Tente novamente.'); 
+        isProcessingCheckout = false;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Finalizar Pedido';
+      };
+      
+      reader.readAsDataURL(selectedFile);
+      
+    } catch (error) {
+      console.error('Erro ao processar pedido:', error);
+      isProcessingCheckout = false;
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Finalizar Pedido';
+    }
+  });
+}
+
+function showNotifs(){
+  currentView = 'notifs';
+  unreadNotifications = 0;
+  updateNotificationCounter();
+  saveToStorage();
+  
+  let html = '<h3>📱 Notificações dos Pedidos</h3>';
+  
+  if(notifications.length === 0){ 
+    html += '<p style="text-align: center; padding: 20px; color: #888;">Nenhuma notificação no momento.</p>';
+  } else {
+    notifications.forEach((notif, index) => {
+      const podeBaixar = notif.status && notif.status.includes('Pagamento confirmado');
+      
+      let cardClass = 'card';
+      
+      html += `<div class='${cardClass}'>
+        <b>Pedido #${notif.codigo}</b>
+        <div>${notif.msg}</div>
+        <small>${notif.data}</small>
+        <p><strong>Status:</strong> ${notif.status}</p>
+        ${podeBaixar ? `<button class="btn" onclick="baixarNotaFiscalIndividual(${notif.codigo})" style="margin-top: 10px;">Baixar Nota Fiscal</button>` : ''}
+      </div>`;
+    });
+  }
+  
+  document.getElementById('view').innerHTML = html;
+}
+
+window.showHome = showHome;
+window.showCategories = showCategories;
+window.showCategoryProducts = showCategoryProducts;
+window.showCart = showCart;
+window.showNotifs = showNotifs;
+window.addToCart = addToCart;
+window.incQty = incQty;
+window.decQty = decQty;
+window.clearCart = clearCart;
+window.startCheckout = startCheckout;
+window.openContact = openContact;
+window.goBack = goBack;
+window.showHelp = showHelp;
+window.showHelpCategory = showHelpCategory;
+window.baixarNotaFiscalIndividual = baixarNotaFiscalIndividual;
+
+async function inicializar() {
+  await carregarEstoque();
+  loadFromStorage();
+  iniciarSincronizacao();
+  showHome();
+}
+
+inicializar();
+</script>
+</body>
+</html>
