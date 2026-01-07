@@ -1260,10 +1260,11 @@ function showDadosEntrega(localizacaoData) {
 
 
   
-function showUploadComprovante(localizacaoData, descricao) {
+
+  function showUploadComprovante(localizacaoData, descricao) {
   currentView = 'checkout';
   lastLocalizacaoData = localizacaoData;
-  selectedFile = null;
+  window.selectedFileGlobal = null; // VARIÁVEL GLOBAL
   
   const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
   const taxaEntregaAtual = localizacaoData.taxaEntrega || 0;
@@ -1302,7 +1303,7 @@ function showUploadComprovante(localizacaoData, descricao) {
       <div id="fileInfo"></div>
       <div class="finalizar-btn-container">
         <button class="btn" id="submitBtn" disabled 
-          onclick="processarFinalizacao('${localizacaoData.endereco.replace(/'/g, "\\'")}', '${(descricao || '').replace(/'/g, "\\'")}', '${localizacaoData.mapaUrl.replace(/'/g, "\\'")}', '${localizacaoData.whatsapp.replace(/'/g, "\\'")}', ${taxaEntregaAtual})" 
+          onclick="verificarArquivoAntesDeFinalizar()" 
           style="width: 100%; padding: 15px; font-size: 18px;">
           Finalizar Pedido
         </button>
@@ -1314,6 +1315,15 @@ function showUploadComprovante(localizacaoData, descricao) {
   const uploadArea = document.getElementById('uploadArea');
   const fileInfo = document.getElementById('fileInfo');
   const submitBtn = document.getElementById('submitBtn');
+  
+  // Salvar dados para uso posterior
+  window.checkoutData = {
+    localizacao: localizacaoData.endereco,
+    descricao: descricao || '',
+    mapaUrl: localizacaoData.mapaUrl,
+    whatsapp: localizacaoData.whatsapp,
+    taxaEntrega: taxaEntregaAtual
+  };
   
   uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
   uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('active'); });
@@ -1333,89 +1343,107 @@ function showUploadComprovante(localizacaoData, descricao) {
       alert('❌ Formato não permitido! Apenas imagens ou PDF.'); 
       return; 
     }
-    selectedFile = file;
+    window.selectedFileGlobal = file; // SALVA GLOBALMENTE
     const fileSize = (file.size / 1024 / 1024).toFixed(2);
     fileInfo.innerHTML = `<div class="file-info"><strong>${file.name}</strong><br>Tipo: ${file.type}<br>Tamanho: ${fileSize} MB<br>✅ Arquivo pronto para envio</div>`;
     submitBtn.disabled = false; 
     submitBtn.classList.remove('btn-disabled');
   }
-  
-  // Função de processamento - SOLUÇÃO DIRETA
-  window.processarFinalizacao = async function(localizacao, descricao, mapaUrl, whatsapp, taxaEntregaValor) {
-    // VERIFICAÇÃO DIRETA - AQUI ESTÁ A SOLUÇÃO
-    if (!selectedFile) {
-      alert('❌ Selecione um arquivo de comprovante primeiro!');
-      return;
-    }
-    
-    if (isProcessingCheckout) {
-      alert('⚠️ Já está processando um pedido. Aguarde...');
-      return;
-    }
+}
 
-    isProcessingCheckout = true;
-    const submitBtn = document.getElementById('submitBtn');
+// FUNÇÃO GLOBAL PARA VERIFICAR ARQUIVO
+window.verificarArquivoAntesDeFinalizar = function() {
+  if (!window.selectedFileGlobal) {
+    alert('❌ Selecione um arquivo de comprovante primeiro!');
+    return;
+  }
+  
+  if (isProcessingCheckout) {
+    alert('⚠️ Já está processando um pedido. Aguarde...');
+    return;
+  }
+  
+  // Chama a função de processamento com os dados salvos
+  processarFinalizacaoComArquivo();
+};
+
+// FUNÇÃO GLOBAL PARA PROCESSAR
+window.processarFinalizacaoComArquivo = async function() {
+  if (isProcessingCheckout) {
+    alert('⚠️ Já está processando um pedido. Aguarde...');
+    return;
+  }
+
+  isProcessingCheckout = true;
+  const submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = 'Processando...';
+  }
+  
+  try {
+    const reader = new FileReader();
     
-    try {
-      const reader = new FileReader();
+    reader.onload = async function(e) {
+      const comprovanteBase64 = e.target.result;
+      let codigoPedido = Math.floor(Math.random() * 900 + 100);
       
-      reader.onload = async function(e) {
-        const comprovanteBase64 = e.target.result;
-        let codigoPedido = Math.floor(Math.random() * 900 + 100);
-        
-        const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
-        const totalComTaxa = totalProdutos + taxaEntregaValor;
-        
-        let pedido = {
-          codigo: codigoPedido, 
-          produtos: [...cart], 
-          total: totalComTaxa,
-          taxaEntrega: taxaEntregaValor,
-          totalProdutos: totalProdutos,
-          local: localizacao, 
-          mapaUrl: mapaUrl, 
-          desc: descricao || '',
-          whatsapp: whatsapp, 
-          comprovante: comprovanteBase64, 
-          comprovanteNome: selectedFile.name, 
-          comprovanteTipo: selectedFile.type,
-          data: new Date().toLocaleString('pt-BR'), 
-          status: '📦 Pedido recebido'
-        };
-        
-        orders.push(pedido);
-        
-        await sendTelegramNotification(pedido);
-        
-        alert(`✅ Pedido #${pedido.codigo} confirmado!\n💰 Total: R$ ${totalComTaxa.toFixed(2)}\n📍 Entrega em: ${localizacao}`);
-        
-        cart = []; 
-        saveToStorage(); 
-        showHome();
-        isProcessingCheckout = false;
+      const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
+      const totalComTaxa = totalProdutos + (window.checkoutData?.taxaEntrega || 0);
+      
+      let pedido = {
+        codigo: codigoPedido, 
+        produtos: [...cart], 
+        total: totalComTaxa,
+        taxaEntrega: window.checkoutData?.taxaEntrega || 0,
+        totalProdutos: totalProdutos,
+        local: window.checkoutData?.localizacao || '', 
+        mapaUrl: window.checkoutData?.mapaUrl || '', 
+        desc: window.checkoutData?.descricao || '',
+        whatsapp: window.checkoutData?.whatsapp || '', 
+        comprovante: comprovanteBase64, 
+        comprovanteNome: window.selectedFileGlobal.name, 
+        comprovanteTipo: window.selectedFileGlobal.type,
+        data: new Date().toLocaleString('pt-BR'), 
+        status: '📦 Pedido recebido'
       };
       
-      reader.onerror = function() { 
-        alert('❌ Erro ao ler o arquivo. Tente novamente.'); 
-        isProcessingCheckout = false;
+      orders.push(pedido);
+      
+      await sendTelegramNotification(pedido);
+      
+      alert(`✅ Pedido #${pedido.codigo} confirmado!\n💰 Total: R$ ${totalComTaxa.toFixed(2)}\n📍 Entrega em: ${window.checkoutData?.localizacao}`);
+      
+      cart = []; 
+      saveToStorage(); 
+      showHome();
+      isProcessingCheckout = false;
+    };
+    
+    reader.onerror = function() { 
+      alert('❌ Erro ao ler o arquivo. Tente novamente.'); 
+      isProcessingCheckout = false;
+      const submitBtn = document.getElementById('submitBtn');
+      if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = 'Finalizar Pedido';
-      };
-      
-      reader.readAsDataURL(selectedFile);
-      
-    } catch (error) {
-      console.error('Erro ao processar pedido:', error);
-      isProcessingCheckout = false;
+      }
+    };
+    
+    reader.readAsDataURL(window.selectedFileGlobal);
+    
+  } catch (error) {
+    console.error('Erro ao processar pedido:', error);
+    isProcessingCheckout = false;
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Finalizar Pedido';
     }
-  };
-}
-  
-  
+  }
+};
+
+
 
 function showNotifs(){
   currentView = 'notifs';
