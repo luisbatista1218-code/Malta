@@ -1401,13 +1401,10 @@ function showUploadComprovante(localizacaoData, descricao) {
 }
 
 function verificarArquivoAntesDeFinalizar() {
-  console.log("Verificando arquivo...", arquivoComprovanteGlobal);
   
-  if (!arquivoComprovanteGlobal) {
-    // MOSTRA O CARD DE ALERTA
-    document.getElementById('cardAlerta').style.display = 'flex';
-    console.log("Card de alerta mostrado!");
-    return;
+if (!arquivoComprovanteGlobal) {
+  alert("Envie o comprovante primeiro");
+  return;
   }
   
   // Se tem arquivo, processa
