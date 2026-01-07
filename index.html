@@ -1359,7 +1359,7 @@ function showUploadComprovante(localizacaoData, descricao) {
       </div>
       <div id="fileInfo"></div>
       <div class="finalizar-btn-container">
-<button class="btn" id="submitBtn" disabled 
+<button class="btn" id="submitBtn" 
   onclick="verificarArquivoAntesDeFinalizar()" 
   style="width: 100%; padding: 15px; font-size: 18px;">
   Finalizar Pedido
@@ -1401,15 +1401,13 @@ function showUploadComprovante(localizacaoData, descricao) {
 }
 
 function verificarArquivoAntesDeFinalizar() {
-  
-if (!arquivoComprovanteGlobal) {
-  alert("Envie o comprovante primeiro");
-  return;
+  if (!arquivoComprovanteGlobal) {
+    alert("Envie o comprovante primeiro");
+    return;
   }
-  
-  // Se tem arquivo, processa
   processarCheckoutFinal();
 }
+
 
 function processarCheckoutFinal() {
   if (isProcessingCheckout) {
