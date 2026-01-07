@@ -1302,7 +1302,7 @@ function showUploadComprovante(localizacaoData, descricao) {
       <div id="fileInfo"></div>
       <div class="finalizar-btn-container">
         <button class="btn" id="submitBtn" disabled 
-          onclick="finalizarPedidoComComprovante('${localizacaoData.endereco.replace(/'/g, "\\'")}', '${(descricao || '').replace(/'/g, "\\'")}', '${localizacaoData.mapaUrl.replace(/'/g, "\\'")}', '${localizacaoData.whatsapp.replace(/'/g, "\\'")}', ${taxaEntregaAtual})" 
+          onclick="processarFinalizacao('${localizacaoData.endereco.replace(/'/g, "\\'")}', '${(descricao || '').replace(/'/g, "\\'")}', '${localizacaoData.mapaUrl.replace(/'/g, "\\'")}', '${localizacaoData.whatsapp.replace(/'/g, "\\'")}', ${taxaEntregaAtual})" 
           style="width: 100%; padding: 15px; font-size: 18px;">
           Finalizar Pedido
         </button>
@@ -1325,26 +1325,34 @@ function showUploadComprovante(localizacaoData, descricao) {
   fileInput.addEventListener('change', (e) => { if (e.target.files.length) { handleFileSelect(e.target.files[0]); } });
   
   function handleFileSelect(file) {
-    if (file.size > 2 * 1024 * 1024) { alert('❌ Arquivo muito grande! Máximo 2 MB permitido.'); return; }
-    if (!file.type.match('image.*') && !file.type.match('application.pdf')) { alert('❌ Formato não permitido! Apenas imagens ou PDF.'); return; }
+    if (file.size > 2 * 1024 * 1024) { 
+      alert('❌ Arquivo muito grande! Máximo 2 MB permitido.'); 
+      return; 
+    }
+    if (!file.type.match('image.*') && !file.type.match('application.pdf')) { 
+      alert('❌ Formato não permitido! Apenas imagens ou PDF.'); 
+      return; 
+    }
     selectedFile = file;
     const fileSize = (file.size / 1024 / 1024).toFixed(2);
     fileInfo.innerHTML = `<div class="file-info"><strong>${file.name}</strong><br>Tipo: ${file.type}<br>Tamanho: ${fileSize} MB<br>✅ Arquivo pronto para envio</div>`;
-    submitBtn.disabled = false; submitBtn.classList.remove('btn-disabled');
+    submitBtn.disabled = false; 
+    submitBtn.classList.remove('btn-disabled');
   }
   
-  window.finalizarPedidoComComprovante = async function(localizacao, descricao, mapaUrl, whatsapp, taxaEntregaValor) {
+  // Função de processamento - SOLUÇÃO DIRETA
+  window.processarFinalizacao = async function(localizacao, descricao, mapaUrl, whatsapp, taxaEntregaValor) {
+    // VERIFICAÇÃO DIRETA - AQUI ESTÁ A SOLUÇÃO
+    if (!selectedFile) {
+      alert('❌ Selecione um arquivo de comprovante primeiro!');
+      return;
+    }
+    
     if (isProcessingCheckout) {
       alert('⚠️ Já está processando um pedido. Aguarde...');
       return;
     }
 
-    // VERIFICAÇÃO DIRETA AQUI DENTRO DA FUNÇÃO
-    if (!selectedFile) { 
-      alert('❌ Selecione um arquivo de comprovante primeiro!'); 
-      return; 
-    }
-    
     isProcessingCheckout = true;
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
@@ -1405,7 +1413,8 @@ function showUploadComprovante(localizacaoData, descricao) {
       submitBtn.innerHTML = 'Finalizar Pedido';
     }
   };
-}  
+}
+  
   
 
 function showNotifs(){
