@@ -1259,7 +1259,8 @@ function showDadosEntrega(localizacaoData) {
 }
 
 
- function showUploadComprovante(localizacaoData, descricao) {
+ 
+function showUploadComprovante(localizacaoData, descricao) {
   currentView = 'checkout';
   lastLocalizacaoData = localizacaoData;
   arquivoSelecionadoGlobal = null;
@@ -1313,20 +1314,21 @@ function showDadosEntrega(localizacaoData) {
   const fileInfo = document.getElementById('fileInfo');
   const submitBtn = document.getElementById('submitBtn');
   
-  // ADICIONE ESTA PARTE: Event listener que SEMPRE verifica
-  submitBtn.addEventListener('click', function(e) {
-    console.log("Botão clicado! Verificando arquivo...");
-    console.log("arquivoSelecionadoGlobal:", arquivoSelecionadoGlobal);
+  // SOLUÇÃO DIRETA: Adiciona o evento click com verificação
+  submitBtn.addEventListener('click', function(event) {
+    console.log("CLICOU NO BOTÃO");
+    console.log("Valor de arquivoSelecionadoGlobal:", arquivoSelecionadoGlobal);
     
+    // VERIFICAÇÃO IMEDIATA - deve mostrar alerta se não tem arquivo
     if (!arquivoSelecionadoGlobal) {
-      e.preventDefault();
-      e.stopPropagation();
+      console.log("SEM ARQUIVO - Deve mostrar alerta");
       alert('❌ Selecione um arquivo de comprovante primeiro!');
-      console.log("ALERTA MOSTRADO: Sem arquivo selecionado");
+      event.preventDefault();
+      event.stopImmediatePropagation();
       return false;
     }
     
-    // Se tem arquivo, chama a função normalmente
+    console.log("COM ARQUIVO - Prosseguindo");
     processarCheckoutFinal();
   });
   
@@ -1353,22 +1355,27 @@ function showDadosEntrega(localizacaoData) {
     fileInfo.innerHTML = `<div class="file-info"><strong>${file.name}</strong><br>Tipo: ${file.type}<br>Tamanho: ${fileSize} MB<br>✅ Arquivo pronto para envio</div>`;
     submitBtn.disabled = false; 
     submitBtn.classList.remove('btn-disabled');
+    console.log("Arquivo selecionado:", file.name);
   }
 }
 
 // MODIFIQUE A FUNÇÃO para não usar window.
 function processarCheckoutFinal() {
+  console.log("processarCheckoutFinal chamada");
+  
   if (isProcessingCheckout) {
     alert('⚠️ Já está processando um pedido. Aguarde...');
     return;
   }
 
-  // Esta verificação ainda é necessária como fallback
+  // Verificação redundante para segurança
   if (!arquivoSelecionadoGlobal) {
+    console.log("processarCheckoutFinal: SEM ARQUIVO!");
     alert('❌ Selecione um arquivo de comprovante primeiro!');
     return;
   }
   
+  console.log("processarCheckoutFinal: COM ARQUIVO, processando...");
   isProcessingCheckout = true;
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true;
@@ -1443,9 +1450,8 @@ function processarCheckoutFinal() {
       submitBtn.innerHTML = 'Finalizar Pedido';
     }
   }
-  } 
-
-
+  }  
+    
 
 function showNotifs(){
   currentView = 'notifs';
