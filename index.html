@@ -1258,6 +1258,8 @@ function showDadosEntrega(localizacaoData) {
   };
 }
 
+
+  
 function showUploadComprovante(localizacaoData, descricao) {
   currentView = 'checkout';
   lastLocalizacaoData = localizacaoData;
@@ -1300,8 +1302,7 @@ function showUploadComprovante(localizacaoData, descricao) {
       <div id="fileInfo"></div>
       <div class="finalizar-btn-container">
         <button class="btn" id="submitBtn" disabled 
-          onclick="if(!window.verificarArquivoSelecionado()) { alert('❌ Selecione um arquivo de comprovante primeiro!'); return; } 
-                   finalizarPedidoComComprovante('${localizacaoData.endereco.replace(/'/g, "\\'")}', '${(descricao || '').replace(/'/g, "\\'")}', '${localizacaoData.mapaUrl.replace(/'/g, "\\'")}', '${localizacaoData.whatsapp.replace(/'/g, "\\'")}', ${taxaEntregaAtual})" 
+          onclick="finalizarPedidoComComprovante('${localizacaoData.endereco.replace(/'/g, "\\'")}', '${(descricao || '').replace(/'/g, "\\'")}', '${localizacaoData.mapaUrl.replace(/'/g, "\\'")}', '${localizacaoData.whatsapp.replace(/'/g, "\\'")}', ${taxaEntregaAtual})" 
           style="width: 100%; padding: 15px; font-size: 18px;">
           Finalizar Pedido
         </button>
@@ -1332,16 +1333,13 @@ function showUploadComprovante(localizacaoData, descricao) {
     submitBtn.disabled = false; submitBtn.classList.remove('btn-disabled');
   }
   
-  window.verificarArquivoSelecionado = function() {
-    return !!selectedFile;
-  };
-  
   window.finalizarPedidoComComprovante = async function(localizacao, descricao, mapaUrl, whatsapp, taxaEntregaValor) {
     if (isProcessingCheckout) {
       alert('⚠️ Já está processando um pedido. Aguarde...');
       return;
     }
 
+    // VERIFICAÇÃO DIRETA AQUI DENTRO DA FUNÇÃO
     if (!selectedFile) { 
       alert('❌ Selecione um arquivo de comprovante primeiro!'); 
       return; 
@@ -1407,7 +1405,8 @@ function showUploadComprovante(localizacaoData, descricao) {
       submitBtn.innerHTML = 'Finalizar Pedido';
     }
   };
-}
+}  
+  
 
 function showNotifs(){
   currentView = 'notifs';
