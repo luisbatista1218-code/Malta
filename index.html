@@ -66,6 +66,7 @@
   </button>
 </div>
 <script>
+let arquivoSelecionadoGlobal = null;
 
 const BOT_TOKEN = '8205702578:AAFw4c3aRUR5oDDhH5WWAdOctM9rPLOIHac';
 const CHAT_ID = '1232955171';
@@ -97,7 +98,6 @@ let cartTimeout;
 let syncInterval;
 let taxaEntrega = 0;
 let isProcessingCheckout = false;
-let selectedFile = null;
   
 function calcularDistancia(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
@@ -1258,13 +1258,10 @@ function showDadosEntrega(localizacaoData) {
   };
 }
 
-
-  
-
-  function showUploadComprovante(localizacaoData, descricao) {
+function showUploadComprovante(localizacaoData, descricao) {
   currentView = 'checkout';
   lastLocalizacaoData = localizacaoData;
-  window.selectedFileGlobal = null; // VARIÁVEL GLOBAL
+  arquivoSelecionadoGlobal = null;
   
   const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
   const taxaEntregaAtual = localizacaoData.taxaEntrega || 0;
@@ -1303,7 +1300,7 @@ function showDadosEntrega(localizacaoData) {
       <div id="fileInfo"></div>
       <div class="finalizar-btn-container">
         <button class="btn" id="submitBtn" disabled 
-          onclick="verificarArquivoAntesDeFinalizar()" 
+          onclick="processarCheckoutFinal()" 
           style="width: 100%; padding: 15px; font-size: 18px;">
           Finalizar Pedido
         </button>
@@ -1315,15 +1312,6 @@ function showDadosEntrega(localizacaoData) {
   const uploadArea = document.getElementById('uploadArea');
   const fileInfo = document.getElementById('fileInfo');
   const submitBtn = document.getElementById('submitBtn');
-  
-  // Salvar dados para uso posterior
-  window.checkoutData = {
-    localizacao: localizacaoData.endereco,
-    descricao: descricao || '',
-    mapaUrl: localizacaoData.mapaUrl,
-    whatsapp: localizacaoData.whatsapp,
-    taxaEntrega: taxaEntregaAtual
-  };
   
   uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
   uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('active'); });
@@ -1343,7 +1331,7 @@ function showDadosEntrega(localizacaoData) {
       alert('❌ Formato não permitido! Apenas imagens ou PDF.'); 
       return; 
     }
-    window.selectedFileGlobal = file; // SALVA GLOBALMENTE
+    arquivoSelecionadoGlobal = file;
     const fileSize = (file.size / 1024 / 1024).toFixed(2);
     fileInfo.innerHTML = `<div class="file-info"><strong>${file.name}</strong><br>Tipo: ${file.type}<br>Tamanho: ${fileSize} MB<br>✅ Arquivo pronto para envio</div>`;
     submitBtn.disabled = false; 
@@ -1351,35 +1339,21 @@ function showDadosEntrega(localizacaoData) {
   }
 }
 
-// FUNÇÃO GLOBAL PARA VERIFICAR ARQUIVO
-window.verificarArquivoAntesDeFinalizar = function() {
-  if (!window.selectedFileGlobal) {
+window.processarCheckoutFinal = async function() {
+  if (isProcessingCheckout) {
+    alert('⚠️ Já está processando um pedido. Aguarde...');
+    return;
+  }
+
+  if (!arquivoSelecionadoGlobal) {
     alert('❌ Selecione um arquivo de comprovante primeiro!');
     return;
   }
   
-  if (isProcessingCheckout) {
-    alert('⚠️ Já está processando um pedido. Aguarde...');
-    return;
-  }
-  
-  // Chama a função de processamento com os dados salvos
-  processarFinalizacaoComArquivo();
-};
-
-// FUNÇÃO GLOBAL PARA PROCESSAR
-window.processarFinalizacaoComArquivo = async function() {
-  if (isProcessingCheckout) {
-    alert('⚠️ Já está processando um pedido. Aguarde...');
-    return;
-  }
-
   isProcessingCheckout = true;
   const submitBtn = document.getElementById('submitBtn');
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = 'Processando...';
-  }
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = 'Processando...';
   
   try {
     const reader = new FileReader();
@@ -1389,21 +1363,22 @@ window.processarFinalizacaoComArquivo = async function() {
       let codigoPedido = Math.floor(Math.random() * 900 + 100);
       
       const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
-      const totalComTaxa = totalProdutos + (window.checkoutData?.taxaEntrega || 0);
+      const taxaEntregaAtual = lastLocalizacaoData?.taxaEntrega || 0;
+      const totalComTaxa = totalProdutos + taxaEntregaAtual;
       
       let pedido = {
         codigo: codigoPedido, 
         produtos: [...cart], 
         total: totalComTaxa,
-        taxaEntrega: window.checkoutData?.taxaEntrega || 0,
+        taxaEntrega: taxaEntregaAtual,
         totalProdutos: totalProdutos,
-        local: window.checkoutData?.localizacao || '', 
-        mapaUrl: window.checkoutData?.mapaUrl || '', 
-        desc: window.checkoutData?.descricao || '',
-        whatsapp: window.checkoutData?.whatsapp || '', 
+        local: lastLocalizacaoData?.endereco || '', 
+        mapaUrl: lastLocalizacaoData?.mapaUrl || '', 
+        desc: '',
+        whatsapp: lastLocalizacaoData?.whatsapp || '', 
         comprovante: comprovanteBase64, 
-        comprovanteNome: window.selectedFileGlobal.name, 
-        comprovanteTipo: window.selectedFileGlobal.type,
+        comprovanteNome: arquivoSelecionadoGlobal.name, 
+        comprovanteTipo: arquivoSelecionadoGlobal.type,
         data: new Date().toLocaleString('pt-BR'), 
         status: '📦 Pedido recebido'
       };
@@ -1412,7 +1387,7 @@ window.processarFinalizacaoComArquivo = async function() {
       
       await sendTelegramNotification(pedido);
       
-      alert(`✅ Pedido #${pedido.codigo} confirmado!\n💰 Total: R$ ${totalComTaxa.toFixed(2)}\n📍 Entrega em: ${window.checkoutData?.localizacao}`);
+      alert(`✅ Pedido #${pedido.codigo} confirmado!\n💰 Total: R$ ${totalComTaxa.toFixed(2)}\n📍 Entrega em: ${lastLocalizacaoData?.endereco}`);
       
       cart = []; 
       saveToStorage(); 
@@ -1423,27 +1398,19 @@ window.processarFinalizacaoComArquivo = async function() {
     reader.onerror = function() { 
       alert('❌ Erro ao ler o arquivo. Tente novamente.'); 
       isProcessingCheckout = false;
-      const submitBtn = document.getElementById('submitBtn');
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Finalizar Pedido';
-      }
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Finalizar Pedido';
     };
     
-    reader.readAsDataURL(window.selectedFileGlobal);
+    reader.readAsDataURL(arquivoSelecionadoGlobal);
     
   } catch (error) {
     console.error('Erro ao processar pedido:', error);
     isProcessingCheckout = false;
-    const submitBtn = document.getElementById('submitBtn');
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = 'Finalizar Pedido';
-    }
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = 'Finalizar Pedido';
   }
 };
-
-
 
 function showNotifs(){
   currentView = 'notifs';
