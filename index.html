@@ -1259,10 +1259,10 @@ function showDadosEntrega(localizacaoData) {
 }
 
 
+
 function showUploadComprovante(localizacaoData, descricao) {
   currentView = 'checkout';
   lastLocalizacaoData = localizacaoData;
-  arquivoSelecionadoGlobal = null;
   
   const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
   const taxaEntregaAtual = localizacaoData.taxaEntrega || 0;
@@ -1301,11 +1301,34 @@ function showUploadComprovante(localizacaoData, descricao) {
       <div id="fileInfo"></div>
       <div class="finalizar-btn-container">
         <button class="btn" id="submitBtn" disabled 
-          onclick="if (!window.verificarArquivo()) { alert('❌ Selecione um arquivo de comprovante primeiro!'); return false; } processarCheckoutFinal();" 
+          onclick="verificarArquivoAntesDeFinalizar()" 
           style="width: 100%; padding: 15px; font-size: 18px;">
           Finalizar Pedido
         </button>
-      </div>`;
+      </div>
+    </div>
+    
+    <!-- CARD/MODAL QUE APARECE QUANDO NÃO TEM ARQUIVO -->
+    <div id="modalSemArquivo" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+      <div class="card" style="max-width: 400px; margin: 20px; animation: fadeIn 0.3s;">
+        <h3 style="color: #ff4444; margin-top: 0;">❌ Comprovante Necessário</h3>
+        <p>Você precisa enviar o comprovante de pagamento PIX antes de finalizar o pedido.</p>
+        <p><strong>Por que é importante?</strong></p>
+        <ul style="text-align: left; padding-left: 20px;">
+          <li>Confirma que o pagamento foi realizado</li>
+          <li>Acelera o processamento do seu pedido</li>
+          <li>Evita problemas de comunicação</li>
+        </ul>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button class="btn" onclick="document.getElementById('modalSemArquivo').style.display='none'; document.getElementById('fileInput').click();" style="flex: 1;">
+            📎 Selecionar Arquivo
+          </button>
+          <button class="btn-ghost" onclick="document.getElementById('modalSemArquivo').style.display='none'" style="flex: 1;">
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>`;
   
   document.getElementById('view').innerHTML = html;
   
@@ -1314,11 +1337,7 @@ function showUploadComprovante(localizacaoData, descricao) {
   const fileInfo = document.getElementById('fileInfo');
   const submitBtn = document.getElementById('submitBtn');
   
-  // FUNÇÃO GLOBAL para verificar arquivo
-  window.verificarArquivo = function() {
-    console.log("Verificando arquivo...", arquivoSelecionadoGlobal);
-    return !!arquivoSelecionadoGlobal;
-  };
+  let arquivoAtual = null;
   
   uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
   uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('active'); });
@@ -1338,26 +1357,32 @@ function showUploadComprovante(localizacaoData, descricao) {
       alert('❌ Formato não permitido! Apenas imagens ou PDF.'); 
       return; 
     }
-    arquivoSelecionadoGlobal = file;
+    arquivoAtual = file;
     const fileSize = (file.size / 1024 / 1024).toFixed(2);
     fileInfo.innerHTML = `<div class="file-info"><strong>${file.name}</strong><br>Tipo: ${file.type}<br>Tamanho: ${fileSize} MB<br>✅ Arquivo pronto para envio</div>`;
     submitBtn.disabled = false; 
     submitBtn.classList.remove('btn-disabled');
   }
+  
+  // FUNÇÃO QUE VERIFICA E MOSTRA O CARD/MODAL
+  window.verificarArquivoAntesDeFinalizar = function() {
+    if (!arquivoAtual) {
+      // MOSTRA O CARD/MODAL ao invés de alert
+      document.getElementById('modalSemArquivo').style.display = 'flex';
+      return;
+    }
+    
+    // Se tem arquivo, processa normalmente
+    processarComprovanteFinal(arquivoAtual);
+  };
 }
 
-// MODIFIQUE A FUNÇÃO para não usar window.
-function processarCheckoutFinal() {
+function processarComprovanteFinal(arquivo) {
   if (isProcessingCheckout) {
     alert('⚠️ Já está processando um pedido. Aguarde...');
     return;
   }
 
-  if (!arquivoSelecionadoGlobal) {
-    alert('❌ Selecione um arquivo de comprovante primeiro!');
-    return;
-  }
-  
   isProcessingCheckout = true;
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true;
@@ -1386,8 +1411,8 @@ function processarCheckoutFinal() {
           desc: '',
           whatsapp: lastLocalizacaoData?.whatsapp || '', 
           comprovante: comprovanteBase64, 
-          comprovanteNome: arquivoSelecionadoGlobal.name, 
-          comprovanteTipo: arquivoSelecionadoGlobal.type,
+          comprovanteNome: arquivo.name, 
+          comprovanteTipo: arquivo.type,
           data: new Date().toLocaleString('pt-BR'), 
           status: '📦 Pedido recebido'
         };
@@ -1422,7 +1447,7 @@ function processarCheckoutFinal() {
       }
     };
     
-    reader.readAsDataURL(arquivoSelecionadoGlobal);
+    reader.readAsDataURL(arquivo);
     
   } catch (error) {
     console.error('Erro ao processar pedido:', error);
@@ -1432,9 +1457,9 @@ function processarCheckoutFinal() {
       submitBtn.innerHTML = 'Finalizar Pedido';
     }
   }
-}
-
+  }
     
+
 
 function showNotifs(){
   currentView = 'notifs';
