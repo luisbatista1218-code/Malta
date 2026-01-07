@@ -41,6 +41,28 @@
   .input-field {width:100%;padding:12px;margin:10px 0;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-size:16px;}
   a {color: #3a0060; font-weight:bold;}
   .finalizar-btn-container {position: sticky; bottom: 50px; background: #1c0035; padding: 15px; margin: -12px; margin-top: 20px;}
+  
+  /* ESTILO DO CARD DE ALERTA */
+  .alerta-card {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+  .alerta-card .card {
+    max-width: 400px;
+    animation: fadeIn 0.3s;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 </style>
 </head>
 <body>
@@ -56,6 +78,28 @@
   <div id="view"></div>
 </div>
 
+<!-- CARD DE ALERTA PARA COMPROVANTE -->
+<div id="cardAlerta" class="alerta-card">
+  <div class="card">
+    <h3 style="color: #ff4444; margin-top: 0;">❌ Comprovante Necessário</h3>
+    <p>Você precisa enviar o comprovante de pagamento PIX antes de finalizar o pedido.</p>
+    <p><strong>Como fazer:</strong></p>
+    <ol style="text-align: left; padding-left: 20px;">
+      <li>Clique em "Selecionar Arquivo"</li>
+      <li>Escolha a foto ou PDF do comprovante</li>
+      <li>Clique em "Finalizar Pedido" novamente</li>
+    </ol>
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button class="btn" onclick="fecharAlertaESelecionarArquivo()" style="flex: 1;">
+        📎 Selecionar Arquivo
+      </button>
+      <button class="btn-ghost" onclick="fecharAlerta()" style="flex: 1;">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="nav">
   <button onclick="showHome()">Início</button>
   <button onclick="showCategories()">Categoria</button>
@@ -66,7 +110,8 @@
   </button>
 </div>
 <script>
-let arquivoSelecionadoGlobal = null;
+// VARIÁVEL GLOBAL para o arquivo
+let arquivoComprovanteGlobal = null;
 
 const BOT_TOKEN = '8205702578:AAFw4c3aRUR5oDDhH5WWAdOctM9rPLOIHac';
 const CHAT_ID = '1232955171';
@@ -98,8 +143,22 @@ let cartTimeout;
 let syncInterval;
 let taxaEntrega = 0;
 let isProcessingCheckout = false;
-let arquivoGlobal = null;
-  
+
+// FUNÇÕES DO CARD DE ALERTA
+function mostrarAlertaComprovante() {
+  document.getElementById('cardAlerta').style.display = 'flex';
+}
+
+function fecharAlerta() {
+  document.getElementById('cardAlerta').style.display = 'none';
+}
+
+function fecharAlertaESelecionarArquivo() {
+  fecharAlerta();
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) fileInput.click();
+}
+
 function calcularDistancia(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const φ1 = lat1 * Math.PI/180;
@@ -1259,11 +1318,10 @@ function showDadosEntrega(localizacaoData) {
   };
 }
 
-
 function showUploadComprovante(localizacaoData, descricao) {
   currentView = 'checkout';
   lastLocalizacaoData = localizacaoData;
-  arquivoGlobal = null; // RESETA a global
+  arquivoComprovanteGlobal = null;
   
   const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
   const taxaEntregaAtual = localizacaoData.taxaEntrega || 0;
@@ -1307,28 +1365,6 @@ function showUploadComprovante(localizacaoData, descricao) {
           Finalizar Pedido
         </button>
       </div>
-    </div>
-    
-    <!-- CARD/MODAL QUE APARECE QUANDO NÃO TEM ARQUIVO -->
-    <div id="modalSemArquivo" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
-      <div class="card" style="max-width: 400px; margin: 20px; animation: fadeIn 0.3s;">
-        <h3 style="color: #ff4444; margin-top: 0;">❌ Comprovante Necessário</h3>
-        <p>Você precisa enviar o comprovante de pagamento PIX antes de finalizar o pedido.</p>
-        <p><strong>Por que é importante?</strong></p>
-        <ul style="text-align: left; padding-left: 20px;">
-          <li>Confirma que o pagamento foi realizado</li>
-          <li>Acelera o processamento do seu pedido</li>
-          <li>Evita problemas de comunicação</li>
-        </ul>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-          <button class="btn" onclick="fecharModalESelecionarArquivo()" style="flex: 1;">
-            📎 Selecionar Arquivo
-          </button>
-          <button class="btn-ghost" onclick="fecharModal()" style="flex: 1;">
-            Entendi
-          </button>
-        </div>
-      </div>
     </div>`;
   
   document.getElementById('view').innerHTML = html;
@@ -1337,7 +1373,6 @@ function showUploadComprovante(localizacaoData, descricao) {
   const uploadArea = document.getElementById('uploadArea');
   const fileInfo = document.getElementById('fileInfo');
   const submitBtn = document.getElementById('submitBtn');
-  const modal = document.getElementById('modalSemArquivo');
   
   uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
   uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('active'); });
@@ -1357,7 +1392,7 @@ function showUploadComprovante(localizacaoData, descricao) {
       alert('❌ Formato não permitido! Apenas imagens ou PDF.'); 
       return; 
     }
-    arquivoGlobal = file; // ATUALIZA a GLOBAL
+    arquivoComprovanteGlobal = file;
     const fileSize = (file.size / 1024 / 1024).toFixed(2);
     fileInfo.innerHTML = `<div class="file-info"><strong>${file.name}</strong><br>Tipo: ${file.type}<br>Tamanho: ${fileSize} MB<br>✅ Arquivo pronto para envio</div>`;
     submitBtn.disabled = false; 
@@ -1365,41 +1400,31 @@ function showUploadComprovante(localizacaoData, descricao) {
   }
 }
 
-// FUNÇÕES GLOBAIS
-window.verificarArquivoAntesDeFinalizar = function() {
-  console.log("Verificando arquivoGlobal:", arquivoGlobal);
+function verificarArquivoAntesDeFinalizar() {
+  console.log("Verificando arquivo...", arquivoComprovanteGlobal);
   
-  if (!arquivoGlobal) {
-    // MOSTRA O CARD/MODAL
-    const modal = document.getElementById('modalSemArquivo');
-    if (modal) {
-      modal.style.display = 'flex';
-      console.log("Modal mostrado!");
-    }
+  if (!arquivoComprovanteGlobal) {
+    // MOSTRA O CARD DE ALERTA
+    document.getElementById('cardAlerta').style.display = 'flex';
+    console.log("Card de alerta mostrado!");
     return;
   }
   
-  // Se tem arquivo, processa normalmente
-  processarComprovanteFinal(arquivoGlobal);
-};
+  // Se tem arquivo, processa
+  processarCheckoutFinal();
+}
 
-window.fecharModalESelecionarArquivo = function() {
-  const modal = document.getElementById('modalSemArquivo');
-  if (modal) modal.style.display = 'none';
-  document.getElementById('fileInput').click();
-};
-
-window.fecharModal = function() {
-  const modal = document.getElementById('modalSemArquivo');
-  if (modal) modal.style.display = 'none';
-};
-
-function processarComprovanteFinal(arquivo) {
+function processarCheckoutFinal() {
   if (isProcessingCheckout) {
     alert('⚠️ Já está processando um pedido. Aguarde...');
     return;
   }
 
+  if (!arquivoComprovanteGlobal) {
+    alert('❌ Selecione um arquivo de comprovante primeiro!');
+    return;
+  }
+  
   isProcessingCheckout = true;
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true;
@@ -1428,8 +1453,8 @@ function processarComprovanteFinal(arquivo) {
           desc: '',
           whatsapp: lastLocalizacaoData?.whatsapp || '', 
           comprovante: comprovanteBase64, 
-          comprovanteNome: arquivo.name, 
-          comprovanteTipo: arquivo.type,
+          comprovanteNome: arquivoComprovanteGlobal.name, 
+          comprovanteTipo: arquivoComprovanteGlobal.type,
           data: new Date().toLocaleString('pt-BR'), 
           status: '📦 Pedido recebido'
         };
@@ -1464,7 +1489,7 @@ function processarComprovanteFinal(arquivo) {
       }
     };
     
-    reader.readAsDataURL(arquivo);
+    reader.readAsDataURL(arquivoComprovanteGlobal);
     
   } catch (error) {
     console.error('Erro ao processar pedido:', error);
@@ -1475,7 +1500,6 @@ function processarComprovanteFinal(arquivo) {
     }
   }
 }
- 
 
 function showNotifs(){
   currentView = 'notifs';
@@ -1521,6 +1545,9 @@ window.goBack = goBack;
 window.showHelp = showHelp;
 window.showHelpCategory = showHelpCategory;
 window.baixarNotaFiscalIndividual = baixarNotaFiscalIndividual;
+window.verificarArquivoAntesDeFinalizar = verificarArquivoAntesDeFinalizar;
+window.fecharAlerta = fecharAlerta;
+window.fecharAlertaESelecionarArquivo = fecharAlertaESelecionarArquivo;
 
 async function inicializar() {
   await carregarEstoque();
