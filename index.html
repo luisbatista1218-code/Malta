@@ -1258,7 +1258,8 @@ function showDadosEntrega(localizacaoData) {
   };
 }
 
-function showUploadComprovante(localizacaoData, descricao) {
+
+ function showUploadComprovante(localizacaoData, descricao) {
   currentView = 'checkout';
   lastLocalizacaoData = localizacaoData;
   arquivoSelecionadoGlobal = null;
@@ -1300,7 +1301,6 @@ function showUploadComprovante(localizacaoData, descricao) {
       <div id="fileInfo"></div>
       <div class="finalizar-btn-container">
         <button class="btn" id="submitBtn" disabled 
-          onclick="processarCheckoutFinal()" 
           style="width: 100%; padding: 15px; font-size: 18px;">
           Finalizar Pedido
         </button>
@@ -1312,6 +1312,23 @@ function showUploadComprovante(localizacaoData, descricao) {
   const uploadArea = document.getElementById('uploadArea');
   const fileInfo = document.getElementById('fileInfo');
   const submitBtn = document.getElementById('submitBtn');
+  
+  // ADICIONE ESTA PARTE: Event listener que SEMPRE verifica
+  submitBtn.addEventListener('click', function(e) {
+    console.log("Botão clicado! Verificando arquivo...");
+    console.log("arquivoSelecionadoGlobal:", arquivoSelecionadoGlobal);
+    
+    if (!arquivoSelecionadoGlobal) {
+      e.preventDefault();
+      e.stopPropagation();
+      alert('❌ Selecione um arquivo de comprovante primeiro!');
+      console.log("ALERTA MOSTRADO: Sem arquivo selecionado");
+      return false;
+    }
+    
+    // Se tem arquivo, chama a função normalmente
+    processarCheckoutFinal();
+  });
   
   uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('active'); });
   uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('active'); });
@@ -1339,12 +1356,14 @@ function showUploadComprovante(localizacaoData, descricao) {
   }
 }
 
-window.processarCheckoutFinal = async function() {
+// MODIFIQUE A FUNÇÃO para não usar window.
+function processarCheckoutFinal() {
   if (isProcessingCheckout) {
     alert('⚠️ Já está processando um pedido. Aguarde...');
     return;
   }
 
+  // Esta verificação ainda é necessária como fallback
   if (!arquivoSelecionadoGlobal) {
     alert('❌ Selecione um arquivo de comprovante primeiro!');
     return;
@@ -1359,47 +1378,59 @@ window.processarCheckoutFinal = async function() {
     const reader = new FileReader();
     
     reader.onload = async function(e) {
-      const comprovanteBase64 = e.target.result;
-      let codigoPedido = Math.floor(Math.random() * 900 + 100);
-      
-      const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
-      const taxaEntregaAtual = lastLocalizacaoData?.taxaEntrega || 0;
-      const totalComTaxa = totalProdutos + taxaEntregaAtual;
-      
-      let pedido = {
-        codigo: codigoPedido, 
-        produtos: [...cart], 
-        total: totalComTaxa,
-        taxaEntrega: taxaEntregaAtual,
-        totalProdutos: totalProdutos,
-        local: lastLocalizacaoData?.endereco || '', 
-        mapaUrl: lastLocalizacaoData?.mapaUrl || '', 
-        desc: '',
-        whatsapp: lastLocalizacaoData?.whatsapp || '', 
-        comprovante: comprovanteBase64, 
-        comprovanteNome: arquivoSelecionadoGlobal.name, 
-        comprovanteTipo: arquivoSelecionadoGlobal.type,
-        data: new Date().toLocaleString('pt-BR'), 
-        status: '📦 Pedido recebido'
-      };
-      
-      orders.push(pedido);
-      
-      await sendTelegramNotification(pedido);
-      
-      alert(`✅ Pedido #${pedido.codigo} confirmado!\n💰 Total: R$ ${totalComTaxa.toFixed(2)}\n📍 Entrega em: ${lastLocalizacaoData?.endereco}`);
-      
-      cart = []; 
-      saveToStorage(); 
-      showHome();
-      isProcessingCheckout = false;
+      try {
+        const comprovanteBase64 = e.target.result;
+        let codigoPedido = Math.floor(Math.random() * 900 + 100);
+        
+        const totalProdutos = cart.reduce((total, item) => total + (item.preco * item.qtd), 0);
+        const taxaEntregaAtual = lastLocalizacaoData?.taxaEntrega || 0;
+        const totalComTaxa = totalProdutos + taxaEntregaAtual;
+        
+        let pedido = {
+          codigo: codigoPedido, 
+          produtos: [...cart], 
+          total: totalComTaxa,
+          taxaEntrega: taxaEntregaAtual,
+          totalProdutos: totalProdutos,
+          local: lastLocalizacaoData?.endereco || '', 
+          mapaUrl: lastLocalizacaoData?.mapaUrl || '', 
+          desc: '',
+          whatsapp: lastLocalizacaoData?.whatsapp || '', 
+          comprovante: comprovanteBase64, 
+          comprovanteNome: arquivoSelecionadoGlobal.name, 
+          comprovanteTipo: arquivoSelecionadoGlobal.type,
+          data: new Date().toLocaleString('pt-BR'), 
+          status: '📦 Pedido recebido'
+        };
+        
+        orders.push(pedido);
+        
+        await sendTelegramNotification(pedido);
+        
+        alert(`✅ Pedido #${pedido.codigo} confirmado!\n💰 Total: R$ ${totalComTaxa.toFixed(2)}\n📍 Entrega em: ${lastLocalizacaoData?.endereco}`);
+        
+        cart = []; 
+        saveToStorage(); 
+        showHome();
+        isProcessingCheckout = false;
+      } catch (error) {
+        console.error('Erro interno ao processar pedido:', error);
+        isProcessingCheckout = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = 'Finalizar Pedido';
+        }
+      }
     };
     
     reader.onerror = function() { 
       alert('❌ Erro ao ler o arquivo. Tente novamente.'); 
       isProcessingCheckout = false;
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = 'Finalizar Pedido';
+      const submitBtn = document.getElementById('submitBtn');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Finalizar Pedido';
+      }
     };
     
     reader.readAsDataURL(arquivoSelecionadoGlobal);
@@ -1407,10 +1438,14 @@ window.processarCheckoutFinal = async function() {
   } catch (error) {
     console.error('Erro ao processar pedido:', error);
     isProcessingCheckout = false;
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = 'Finalizar Pedido';
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Finalizar Pedido';
+    }
   }
-};
+  } 
+
+
 
 function showNotifs(){
   currentView = 'notifs';
