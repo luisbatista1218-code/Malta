@@ -4,10 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Delivery App Completo</title>
-
-  <!-- PWA Minimal -->
-<meta name="theme-color" content="#3a0060">
-<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Delivery%22%2C%22short_name%22%3A%22Delivery%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%2328004a%22%2C%22theme_color%22%3A%22%233a0060%22%7D">
   
 <style>
   body {margin:0;font-family:'Segoe UI',sans-serif;background:#28004a;color:#fff;}
@@ -114,17 +110,6 @@
     <span id="notificationCounter" class="notification-badge" style="display: none">0</span>
   </button>
 </div>
-
-<script>
-// Service Worker INLINE - nada de arquivo novo
-const swCode = `
-self.addEventListener('install', e => e.waitUntil(caches.open('delivery-v1').then(cache => cache.add('/'))));
-self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(res => res || fetch(e.request))));
-`;
-const blob = new Blob([swCode], {type: 'application/javascript'});
-const swUrl = URL.createObjectURL(blob);
-if ('serviceWorker' in navigator) navigator.serviceWorker.register(swUrl);
-</script>
   
 <script>
 // VARIÁVEL GLOBAL para o arquivo
@@ -1566,10 +1551,6 @@ async function inicializar() {
   loadFromStorage();
   iniciarSincronizacao();
   showHome();
-}
-// PWA MINIMAL - 2 linhas apenas
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
  
 inicializar();
