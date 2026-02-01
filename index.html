@@ -1506,14 +1506,28 @@ function processarCheckoutFinal() {
   }
 }
 
+function limparNotificacoes(){
+  notifications = [];
+  saveToStorage();
+  showNotifs();
+}
+  
 function showNotifs(){
   currentView = 'notifs';
   unreadNotifications = 0;
   updateNotificationCounter();
   saveToStorage();
   
-  let html = '<h3>📱 Notificações dos Pedidos</h3>';
-  
+//  let html = '<h3>📱 Notificações dos Pedidos</h3>';
+  let html = `
+  <h3 style="display:flex;justify-content:space-between;align-items:center;">
+    📱 Notificações dos Pedidos
+    <button onclick="limparNotificacoes()" style="font-size:12px;opacity:.6;">
+      Limpar
+    </button>
+  </h3>
+`;
+
   if(notifications.length === 0){ 
     html += '<p style="text-align: center; padding: 20px; color: #888;">Nenhuma notificação no momento.</p>';
   } else {
