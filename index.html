@@ -1570,6 +1570,17 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const salvo = localStorage.getItem("tela");
+  if (salvo) document.body.innerHTML = salvo;
+});
 
+window.addEventListener("beforeunload", () => {
+  localStorage.setItem("tela", document.body.innerHTML);
+});
+</script>
+
+  
 </body>
 </html>
