@@ -67,10 +67,7 @@
 </style>
 
 
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#3a0060">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 
 
 </head>
@@ -1578,22 +1575,7 @@ async function inicializar() {
 inicializar();
 </script>
 
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js");
-}
-</script>
 
-<script>
-window.addEventListener("DOMContentLoaded", () => {
-  const salvo = localStorage.getItem("tela");
-  if (salvo) document.body.innerHTML = salvo;
-});
-
-window.addEventListener("beforeunload", () => {
-  localStorage.setItem("tela", document.body.innerHTML);
-});
-</script>
 
   
 </body>
